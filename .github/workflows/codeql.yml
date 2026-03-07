@@ -109,7 +109,7 @@ jobs:
           name: quality-reports
           path: reports
 
-      - name: Create or update GitHub issue
+      - name: Create or update GitHub issues (quality + high severity code scanning)
         if: ${{ github.event_name != 'pull_request' }}
         uses: actions/github-script@v7
         with:
@@ -118,11 +118,15 @@ jobs:
 
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const issueTitle = 'Automated Quality Report';
+
+            const qualityIssueTitle = 'Automated Quality Report';
+            const securityIssueTitle = 'High Severity Code Scanning Alerts';
+
             const labels = ['quality-report', 'tech-debt', 'automated'];
+            const securityLabels = ['security', 'code-scanning', 'high-severity', 'automated'];
 
             // Ensure labels exist
-            for (const label of labels) {
+            for (const label of [...labels, ...securityLabels]) {
               try {
                 await github.rest.issues.getLabel({ owner, repo, name: label });
               } catch {
@@ -132,7 +136,41 @@ jobs:
               }
             }
 
-            // Parse ESLint report
+            // ---- Code scanning alerts (high/critical) ----
+            async function listOpenAlerts(severity) {
+              return await github.paginate(
+                github.rest.codeScanning.listAlertsForRepo,
+                { owner, repo, state: 'open', severity }
+              );
+            }
+
+            let criticalAlerts = [];
+            let highAlerts = [];
+            try {
+              criticalAlerts = await listOpenAlerts('critical');
+              highAlerts = await listOpenAlerts('high');
+            } catch (e) {
+              core.warning(`Failed to list code scanning alerts: ${e?.message || e}`);
+            }
+
+            const highSeverityAlerts = [...criticalAlerts, ...highAlerts];
+
+            const alertsLines = highSeverityAlerts.slice(0, 25).map((a) => {
+              const ruleId = a.rule?.id || 'unknown-rule';
+              const sev = a.rule?.security_severity_level || a.rule?.severity || a.severity || 'unknown';
+              const name = a.rule?.name || a.rule?.description || a.tool?.name || 'Code scanning alert';
+              const url = a.html_url || '';
+              return `- [#${a.number}](${url}) (${sev}) \`${ruleId}\` — ${name}`;
+            });
+
+            const codeScanningSummary = [
+              `- Open critical: ${criticalAlerts.length}`,
+              `- Open high: ${highAlerts.length}`,
+              `- Total high/critical: ${highSeverityAlerts.length}`,
+              highSeverityAlerts.length ? `` : `- none`,
+            ].join('\n');
+
+            // ---- Parse ESLint report ----
             let eslintSummary = { files: 0, errors: 0, warnings: 0, topRules: [] };
             try {
               const eslintRaw = fs.readFileSync('reports/eslint-report.json', 'utf8');
@@ -152,7 +190,7 @@ jobs:
                 .slice(0, 10);
             } catch {}
 
-            // Parse npm audit report
+            // ---- Parse npm audit report ----
             let auditSummary = { vulnerabilities: 0, bySeverity: {} };
             try {
               const auditRaw = fs.readFileSync('reports/npm-audit.json', 'utf8');
@@ -169,7 +207,52 @@ jobs:
             } catch {}
 
             const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
-            const body = [
+
+            // ---- Create/update SECURITY issue if needed ----
+            const securityBody = [
+              `## High Severity Code Scanning Alerts`,
+              ``,
+              `- Run: ${runUrl}`,
+              `- Commit: \`${context.sha}\``,
+              `- Generated: ${new Date().toISOString()}`,
+              ``,
+              `### Summary`,
+              codeScanningSummary,
+              ``,
+              `### Alerts (top ${Math.min(25, highSeverityAlerts.length)})`,
+              ...(alertsLines.length ? alertsLines : ['- none']),
+            ].join('\n');
+
+            const findIssueByTitle = async (title) => {
+              const q = `repo:${owner}/${repo} is:issue is:open in:title "${title}"`;
+              const existing = await github.rest.search.issuesAndPullRequests({ q });
+              return existing.data.items.length > 0 ? existing.data.items[0] : null;
+            };
+
+            if (highSeverityAlerts.length > 0) {
+              const existingSecurity = await findIssueByTitle(securityIssueTitle);
+              if (existingSecurity) {
+                await github.rest.issues.update({
+                  owner, repo,
+                  issue_number: existingSecurity.number,
+                  title: securityIssueTitle,
+                  body: securityBody,
+                  labels: securityLabels,
+                });
+                core.info(`Updated security issue #${existingSecurity.number}`);
+              } else {
+                const created = await github.rest.issues.create({
+                  owner, repo,
+                  title: securityIssueTitle,
+                  body: securityBody,
+                  labels: securityLabels,
+                });
+                core.info(`Created security issue #${created.data.number}`);
+              }
+            }
+
+            // ---- Create/update QUALITY issue, referencing code scanning ----
+            const qualityBody = [
               `## Automated Quality Report`,
               ``,
               `- Run: ${runUrl}`,
@@ -190,22 +273,24 @@ jobs:
               `- Vulnerable packages: ${auditSummary.vulnerabilities}`,
               `- By severity: \`${JSON.stringify(auditSummary.bySeverity)}\``,
               ``,
-              `### Code Scanning`,
-              `- Review CodeQL/Semgrep alerts in the Security tab.`,
+              `### Code Scanning (CodeQL/Semgrep)`,
+              codeScanningSummary,
+              highSeverityAlerts.length
+                ? `- See issue: **${securityIssueTitle}** (created/updated when high/critical alerts exist).`
+                : `- No high/critical open alerts.`,
             ].join('\n');
 
-            const q = `repo:${owner}/${repo} is:issue is:open in:title "${issueTitle}"`;
-            const existing = await github.rest.search.issuesAndPullRequests({ q });
+            const existingQuality = await findIssueByTitle(qualityIssueTitle);
 
-            if (existing.data.items.length > 0) {
-              const issueNumber = existing.data.items[0].number;
+            if (existingQuality) {
               await github.rest.issues.update({
-                owner, repo, issue_number: issueNumber, body, labels
+                owner, repo, issue_number: existingQuality.number,
+                body: qualityBody, labels
               });
-              core.info(`Updated issue #${issueNumber}`);
+              core.info(`Updated issue #${existingQuality.number}`);
             } else {
               const created = await github.rest.issues.create({
-                owner, repo, title: issueTitle, body, labels
+                owner, repo, title: qualityIssueTitle, body: qualityBody, labels
               });
               core.info(`Created issue #${created.data.number}`);
             }
