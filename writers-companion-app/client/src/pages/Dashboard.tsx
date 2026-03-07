@@ -88,12 +88,20 @@ const Dashboard: React.FC = () => {
   };
 
   const handleConnectFolder = async () => {
+    setError('');
+
+    let dir: FileSystemDirectoryHandle;
+    let bundle: { title?: string; author?: string; pages: any[] };
+
     try {
-      setError('');
+      dir = await pickDirectory();
+      bundle = await readBookBundle(dir);
+    } catch {
+      setError('Failed to open the selected folder.');
+      return;
+    }
 
-      const dir = await pickDirectory();
-      const bundle = await readBookBundle(dir);
-
+    try {
       const created = await createBook({
         title: bundle.title?.trim() || dir.name || 'Untitled Book',
         author: bundle.author?.trim() || 'Local Folder',
@@ -108,7 +116,7 @@ const Dashboard: React.FC = () => {
       await fetchBooks();
       navigate(`/books/${created._id}`);
     } catch {
-      setError('Failed to open the selected folder.');
+      setError('Failed to create book (server error).');
     }
   };
 

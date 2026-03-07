@@ -1,4 +1,4 @@
-name: Frontend Tests
+name: Frontend (Vite) - Test + Build
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [main, master]
 
 jobs:
-  test-client:
+  client:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -27,7 +27,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
+      - name: Unit tests (Vitest)
         env:
           CI: true
-        run: npm test -- --watchAll=false
+        run: npm test
+
+      - name: Build (Vite)
+        env:
+          CI: true
+        run: npm run build

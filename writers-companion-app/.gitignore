@@ -37,3 +37,7 @@ Thumbs.db
 # Misc
 *.tmp
 *.temp
+
+# Vite / Vitest caches
+.vite/
+.vitest/

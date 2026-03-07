@@ -1,31 +1,32 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { vi } from 'vitest';
 import Chatbox from './Chatbox';
 import { getAISuggestions } from '../services/api';
 import { useStoryContext } from '../hooks/useStoryContext';
 
-jest.mock('../services/api', () => ({
-  getAISuggestions: jest.fn(),
+vi.mock('../services/api', () => ({
+  getAISuggestions: vi.fn(),
 }));
 
-jest.mock('../hooks/useStoryContext', () => ({
-  useStoryContext: jest.fn(),
+vi.mock('../hooks/useStoryContext', () => ({
+  useStoryContext: vi.fn(),
 }));
 
-const mockedGetAISuggestions = getAISuggestions as jest.MockedFunction<typeof getAISuggestions>;
-const mockedUseStoryContext = useStoryContext as jest.Mock;
+const mockedGetAISuggestions = getAISuggestions as unknown as ReturnType<typeof vi.fn>;
+const mockedUseStoryContext = useStoryContext as unknown as ReturnType<typeof vi.fn>;
 
 describe('Chatbox', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    mockedUseStoryContext.mockReturnValue({
+    vi.clearAllMocks();
+    (mockedUseStoryContext as any).mockReturnValue({
       story: 'It was a dark and stormy night.',
-      setStory: jest.fn(),
+      setStory: vi.fn(),
     });
   });
 
   it('sends edit-style prompt with story context when user asks to edit', async () => {
-    mockedGetAISuggestions.mockResolvedValue({
+    (mockedGetAISuggestions as any).mockResolvedValue({
       suggestions: ['Revised passage.'],
     });
 
@@ -46,7 +47,7 @@ describe('Chatbox', () => {
   });
 
   it('sends raw user input for non-edit intent', async () => {
-    mockedGetAISuggestions.mockResolvedValue({
+    (mockedGetAISuggestions as any).mockResolvedValue({
       feedback: 'General feedback.',
     });
 
@@ -66,7 +67,7 @@ describe('Chatbox', () => {
   });
 
   it('shows fallback error message when API fails', async () => {
-    mockedGetAISuggestions.mockRejectedValue(new Error('Network failure'));
+    (mockedGetAISuggestions as any).mockRejectedValue(new Error('Network failure'));
 
     render(<Chatbox />);
 
