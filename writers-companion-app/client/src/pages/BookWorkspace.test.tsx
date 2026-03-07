@@ -35,7 +35,7 @@ vi.mock('../utils/fsAccess', () => ({
   writeBookBundle: vi.fn(),
 }));
 
-vi.mock('react-quill', () => {
+vi.mock('react-quill-new', () => {
   return {
     default: function MockReactQuill(props: {
       value: string;

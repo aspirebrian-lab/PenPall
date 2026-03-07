@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
 import { getBookById, Book } from '../services/api';
 import {
   loadBookDirHandle,
