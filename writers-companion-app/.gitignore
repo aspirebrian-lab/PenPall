@@ -2,12 +2,6 @@
 node_modules/
 **/node_modules/
 
-# Lockfiles
-package-lock.json
-client/package-lock.json
-server/package-lock.json
-**/package-lock.json
-
 # Build outputs
 dist/
 build/
