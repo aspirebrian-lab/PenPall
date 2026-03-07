@@ -195,10 +195,7 @@ describe('BookWorkspace', () => {
     const quill = await screen.findByTestId('quill');
     fireEvent.change(quill, { target: { value: 'Unsaved change' } });
 
-    const event = new Event('beforeunload', { cancelable: true }) as Event & {
-      returnValue: unknown;
-    };
-    event.returnValue = undefined;
+    const event = new Event('beforeunload', { cancelable: true });
 
     window.dispatchEvent(event);
 
