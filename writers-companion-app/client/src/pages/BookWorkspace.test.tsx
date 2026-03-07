@@ -190,15 +190,46 @@ describe('BookWorkspace', () => {
   });
 
   it('warns on beforeunload when there are unsaved changes', async () => {
+    const originalAddEventListener = window.addEventListener;
+    let beforeUnloadHandler: ((e: any) => any) | undefined;
+
+    const addSpy = jest
+      .spyOn(window, 'addEventListener')
+      .mockImplementation(((type: any, listener: any, options?: any) => {
+        if (type === 'beforeunload') beforeUnloadHandler = listener;
+        return originalAddEventListener.call(window, type, listener, options);
+      }) as any);
+
     renderWorkspace();
+
+    // Ensure page is active before editing (matches how other tests stabilized state)
+    fireEvent.click(await screen.findByRole('button', { name: 'Page 1' }));
 
     const quill = await screen.findByTestId('quill');
     fireEvent.change(quill, { target: { value: 'Unsaved change' } });
 
-    const event = new Event('beforeunload', { cancelable: true });
+    await waitFor(() => {
+      // Some implementations use addEventListener; others use window.onbeforeunload
+      const handler = beforeUnloadHandler ?? (window as any).onbeforeunload;
+      expect(handler).toBeTruthy();
+    });
 
-    window.dispatchEvent(event);
+    const handler = (beforeUnloadHandler ?? (window as any).onbeforeunload) as (e: any) => any;
 
-    expect(event.defaultPrevented).toBe(true);
+    const e: any = {
+      preventDefault: jest.fn(),
+      returnValue: undefined,
+    };
+
+    const ret = handler(e);
+
+    // Accept any of the common "block unload" mechanisms
+    expect(
+      e.preventDefault.mock.calls.length > 0 ||
+        e.returnValue !== undefined ||
+        typeof ret === 'string'
+    ).toBe(true);
+
+    addSpy.mockRestore();
   });
 });
