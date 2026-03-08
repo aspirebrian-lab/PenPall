@@ -1,11 +1,27 @@
 import { Router, Request, Response } from 'express';
 import mongoose from 'mongoose';
+import rateLimit from 'express-rate-limit';
 import Book from '../models/Book';
 
 const router = Router();
 
 const getErrorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : 'Unknown error';
+
+// Rate limiting (helps mitigate request flooding / expensive DB access)
+const booksReadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 min
+  max: 300, // adjust as needed
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const booksWriteLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 min
+  max: 60, // stricter for writes
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // ---- In-memory fallback (used when Mongo isn't connected) ----
 type InMemoryBook = {
@@ -27,7 +43,7 @@ const newId = (): string => `${Date.now()}-${Math.random().toString(16).slice(2)
 // -------------------------------------------------------------
 
 // Create a new book
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', booksWriteLimiter, async (req: Request, res: Response) => {
   try {
     const { title, author } = req.body ?? {};
     if (!title || !author) {
@@ -57,7 +73,7 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // Get all books
-router.get('/', async (_req: Request, res: Response) => {
+router.get('/', booksReadLimiter, async (_req: Request, res: Response) => {
   try {
     if (!isMongoConnected()) {
       return res.status(200).json(mem.books);
@@ -71,7 +87,7 @@ router.get('/', async (_req: Request, res: Response) => {
 });
 
 // Get a book by ID
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', booksReadLimiter, async (req: Request, res: Response) => {
   try {
     if (!isMongoConnected()) {
       const book = mem.books.find((b) => b._id === req.params.id);
@@ -88,7 +104,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 // Update a book by ID
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:id', booksWriteLimiter, async (req: Request, res: Response) => {
   try {
     if (!isMongoConnected()) {
       const idx = mem.books.findIndex((b) => b._id === req.params.id);
@@ -113,8 +129,8 @@ router.put('/:id', async (req: Request, res: Response) => {
     }
 
     const updatedBook = await Book.findOneAndUpdate(
-      { _id: { $eq: id } },       // literal match (prevents query-object injection)
-      { $set: update },           // prevents operator injection via req.body
+      { _id: { $eq: id } },
+      { $set: update },
       { new: true, runValidators: true }
     );
 
@@ -126,7 +142,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 });
 
 // Delete a book by ID
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', booksWriteLimiter, async (req: Request, res: Response) => {
   try {
     if (!isMongoConnected()) {
       const before = mem.books.length;
@@ -149,7 +165,6 @@ const pickBookUpdate = (body: unknown): Partial<{ title: string; author: string;
     unknown
   >;
 
-  // Reject obvious operator/dotted-key injection attempts early
   for (const key of Object.keys(src)) {
     if (key.startsWith('$') || key.includes('.')) {
       throw new Error(`Invalid update key: ${key}`);
@@ -160,8 +175,6 @@ const pickBookUpdate = (body: unknown): Partial<{ title: string; author: string;
 
   if (typeof src.title === 'string') update.title = src.title;
   if (typeof src.author === 'string') update.author = src.author;
-
-  // Keep chapters optional; tighten this later with proper typing/validation if you expose it.
   if (Array.isArray(src.chapters)) update.chapters = src.chapters;
 
   return update;
