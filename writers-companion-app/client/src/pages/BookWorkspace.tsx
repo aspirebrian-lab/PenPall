@@ -16,116 +16,272 @@ import {
 type Page = SyncPage;
 
 const Layout = styled.div`
-  display: grid;
-  grid-template-columns: 260px 1fr;
   min-height: 100vh;
-  background: #f5f7fb;
+  padding: 40px 24px 72px;
+  background:
+    radial-gradient(circle at top left, rgba(182, 201, 190, 0.24), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(214, 205, 188, 0.28), transparent 28%),
+    linear-gradient(180deg, #f5f1ea 0%, #f1eee7 100%);
+  color: #1f2933;
+
+  .page-shell {
+    max-width: 1280px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 300px minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+
+  .workspace-sidebar,
+  .workspace-header,
+  .panel {
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(31, 41, 51, 0.08);
+    border-radius: 28px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 16px 50px rgba(31, 41, 51, 0.08);
+  }
 
   .workspace-sidebar {
-    background: #111827;
-    color: #e5e7eb;
-    padding: 20px;
+    padding: 28px;
+    color: #1f2933;
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    position: static;
+    gap: 18px;
+    position: sticky;
+    top: 24px;
   }
 
   .brand {
-    font-size: 18px;
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    padding: 7px 12px;
+    border-radius: 999px;
+    background: rgba(31, 41, 51, 0.06);
+    color: #52606d;
+    font-size: 12px;
     font-weight: 700;
-    margin-bottom: 8px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .book-meta {
+    padding: 18px;
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.78);
+    border: 1px solid rgba(31, 41, 51, 0.08);
+  }
+
+  .book-meta-title {
+    margin: 0 0 4px;
+    font-family: 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Georgia, serif;
+    font-size: 1.5rem;
+    line-height: 1.05;
+    color: #18212b;
+  }
+
+  .book-meta-author {
+    color: #616e7c;
+    font-size: 0.95rem;
   }
 
   .nav {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+    display: grid;
+    gap: 10px;
   }
 
   .nav button {
-    background: transparent;
-    color: #e5e7eb;
+    min-height: 48px;
+    padding: 0 16px;
+    border-radius: 999px;
     text-align: left;
-    padding: 8px 10px;
-    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.8);
+    color: #3e4c59;
+    border: 1px solid rgba(31, 41, 51, 0.08);
+    font-weight: 600;
   }
 
   .nav button.active {
-    background: #1f2937;
+    background: #18212b;
+    color: #ffffff;
+    border-color: #18212b;
+    box-shadow: 0 10px 24px rgba(24, 33, 43, 0.18);
   }
 
   .content {
-    padding: 24px;
+    padding: 0;
+    display: grid;
+    gap: 18px;
   }
 
-  .topbar {
+  .workspace-header {
+    padding: 24px 28px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 16px;
-    gap: 16px;
+    gap: 18px;
   }
 
-  .book-title {
-    font-size: 20px;
-    font-weight: 700;
-  }
-
-  .panel {
-    background: #ffffff;
-    border-radius: 10px;
-    padding: 16px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-  }
-
-  .page-list {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-bottom: 12px;
-  }
-
-  .page-pill {
-    border: 1px solid #e5e7eb;
-    padding: 6px 10px;
-    border-radius: 999px;
-    background: #f9fafb;
-    color: #1f2937;
-  }
-
-  .page-pill.active {
-    background: #e5f0ff;
-    border-color: #a4c8ff;
-  }
-
-  .editor {
-    min-height: 400px;
+  .header-copy {
+    min-width: 0;
   }
 
   .back {
-    color: #9ca3af;
-    text-decoration: none;
-    font-size: 13px;
+    display: inline-block;
+    margin-bottom: 10px;
+    color: #7b8794;
+    font-size: 0.95rem;
   }
 
-  .back-btn {
-    background: #1f2937;
-    color: #e5e7eb;
-    border-radius: 6px;
-    padding: 8px 10px;
-    display: inline-block;
+  .book-title {
+    margin: 0;
+    font-family: 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Georgia, serif;
+    font-size: clamp(2rem, 4vw, 3.2rem);
+    line-height: 0.98;
+    letter-spacing: -0.04em;
+    color: #18212b;
+  }
+
+  .workspace-subtitle {
+    margin-top: 8px;
+    color: #616e7c;
+    font-size: 1rem;
   }
 
   .actions {
     display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     align-items: center;
     gap: 10px;
   }
 
   .status {
-    font-size: 12px;
-    color: #6b7280;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: rgba(31, 41, 51, 0.06);
+    color: #52606d;
+    font-size: 0.9rem;
+  }
+
+  .primary-action,
+  .secondary-action {
+    min-height: 48px;
+    padding: 0 18px;
+    border-radius: 999px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .primary-action {
+    background: #18212b;
+    color: #ffffff;
+    box-shadow: 0 10px 24px rgba(24, 33, 43, 0.18);
+  }
+
+  .secondary-action {
+    background: transparent;
+    color: #18212b;
+    border: 1px solid rgba(24, 33, 43, 0.14);
+  }
+
+  .panel {
+    padding: 24px;
+  }
+
+  .page-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+
+  .page-pill {
+    padding: 10px 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(31, 41, 51, 0.08);
+    background: rgba(255, 255, 255, 0.78);
+    color: #3e4c59;
+    font-weight: 600;
+  }
+
+  .page-pill.active {
+    background: #f3efe8;
+    border-color: rgba(93, 70, 48, 0.18);
+    color: #5d4630;
+  }
+
+  .editor {
+    min-height: 520px;
+  }
+
+  .editor .ql-toolbar {
+    border: 1px solid rgba(31, 41, 51, 0.08);
+    border-radius: 18px 18px 0 0;
+    background: rgba(250, 248, 244, 0.92);
+  }
+
+  .editor .ql-container {
+    border: 1px solid rgba(31, 41, 51, 0.08);
+    border-top: 0;
+    border-radius: 0 0 22px 22px;
+    background: rgba(255, 255, 255, 0.92);
+    min-height: 460px;
+    font-size: 1rem;
+    color: #1f2933;
+  }
+
+  .editor .ql-editor {
+    min-height: 460px;
+    padding: 24px 24px 32px;
+    line-height: 1.8;
+  }
+
+  .editor .ql-editor.ql-blank::before {
+    color: #8a94a0;
+    font-style: normal;
+  }
+
+  @media (max-width: 1040px) {
+    .page-shell {
+      grid-template-columns: 1fr;
+    }
+
+    .workspace-sidebar {
+      position: static;
+    }
+
+    .workspace-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .actions {
+      justify-content: flex-start;
+    }
+  }
+
+  @media (max-width: 640px) {
+    padding: 24px 16px 48px;
+
+    .workspace-sidebar,
+    .workspace-header,
+    .panel {
+      border-radius: 22px;
+      padding: 22px;
+    }
+
+    .actions {
+      width: 100%;
+    }
+
+    .primary-action,
+    .secondary-action {
+      width: 100%;
+    }
   }
 `;
 
@@ -337,94 +493,94 @@ const BookWorkspace: React.FC = () => {
 
   return (
     <Layout>
-      <aside className="workspace-sidebar">
-        <div className="brand">Writer’s Companion</div>
-        <button className="back-btn" onClick={goBack}>← Back to Dashboard</button>
-
-        <div>
-          <div style={{ fontWeight: 600 }}>{book?.title ?? 'Book'}</div>
-          <div style={{ fontSize: 12, color: '#9ca3af' }}>{book?.author ?? ''}</div>
-        </div>
-
-        <nav className="nav">
-          <button className={activeView === 'editor' ? 'active' : ''} onClick={() => setActiveView('editor')}>
-            Editor
+      <div className="page-shell">
+        <aside className="workspace-sidebar">
+          <div className="brand">Writer's Companion</div>
+          <button className="secondary-action" onClick={goBack}>
+            Back to Dashboard
           </button>
-          <button className={activeView === 'outline' ? 'active' : ''} onClick={() => setActiveView('outline')}>
-            Outline
-          </button>
-          <button className={activeView === 'planning' ? 'active' : ''} onClick={() => setActiveView('planning')}>
-            Planning
-          </button>
-          <button className={activeView === 'settings' ? 'active' : ''} onClick={() => setActiveView('settings')}>
-            Settings
-          </button>
-        </nav>
-      </aside>
 
-      <main className="content">
-        <div className="topbar">
-          <Link
-            className="back"
-            to="/"
-            onClick={(event) => {
-              if (!handleLeave()) event.preventDefault();
-            }}
-          >
-            ← Back to Dashboard
-          </Link>
-
-          <div className="book-title">{book?.title ?? 'Book Workspace'}</div>
-
-          <div className="actions">
-            <span className="status">
-              {isDirty ? 'Unsaved changes' : 'Ready'}
-            </span>
-            {saveMessage ? <span className="status">{saveMessage}</span> : null}
-            <button onClick={manualSave}>Save</button>
-            <button onClick={handleImportPageClick}>Import Page</button>
-            <input
-              ref={importInputRef}
-              type="file"
-              accept=".txt,.md,.rtf,text/plain,text/markdown"
-              onChange={handleImportPage}
-              style={{ display: 'none' }}
-            />
+          <div className="book-meta">
+            <h1 className="book-meta-title">{book?.title ?? 'Book'}</h1>
+            <div className="book-meta-author">{book?.author ?? 'Unknown author'}</div>
           </div>
-        </div>
 
-        {activeView === 'editor' && (
-          <div className="panel">
-            <div className="page-list">
-              {pages.map((page) => (
-                <button
-                  key={page.id}
-                  className={`page-pill ${page.id === activePageId ? 'active' : ''}`}
-                  onClick={() => {
-                    if (handleLeave()) {
-                      setActivePageId(page.id);
-                    }
-                  }}
-                >
-                  {page.title}
-                </button>
-              ))}
+          <nav className="nav">
+            <button className={activeView === 'editor' ? 'active' : ''} onClick={() => setActiveView('editor')}>
+              Editor
+            </button>
+            <button className={activeView === 'outline' ? 'active' : ''} onClick={() => setActiveView('outline')}>
+              Outline
+            </button>
+            <button className={activeView === 'planning' ? 'active' : ''} onClick={() => setActiveView('planning')}>
+              Planning
+            </button>
+            <button className={activeView === 'settings' ? 'active' : ''} onClick={() => setActiveView('settings')}>
+              Settings
+            </button>
+          </nav>
+        </aside>
+
+        <main className="content">
+          <div className="workspace-header">
+            <div className="header-copy">
+              <Link className="back" to="/" onClick={handleLeave}>
+                Back to Dashboard
+              </Link>
+              <div className="book-title">{book?.title ?? 'Book Workspace'}</div>
+              <div className="workspace-subtitle">
+                Draft, revise, and manage pages in one place.
+              </div>
             </div>
 
-            <ReactQuill
-              key={activePageId}
-              value={activePage?.content ?? ''}
-              onChange={updateActivePage}
-              className="editor"
-              placeholder="Start writing this page..."
-            />
+            <div className="actions">
+              <span className="status">{isDirty ? 'Unsaved changes' : 'Ready'}</span>
+              {saveMessage ? <span className="status">{saveMessage}</span> : null}
+              <button className="primary-action" onClick={manualSave}>Save</button>
+              <button className="secondary-action" onClick={handleImportPageClick}>Import Page</button>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept=".txt,.md,.rtf,text/plain,text/markdown"
+                onChange={handleImportPage}
+                style={{ display: 'none' }}
+              />
+            </div>
           </div>
-        )}
 
-        {activeView === 'outline' && <div className="panel">Outline view (placeholder)</div>}
-        {activeView === 'planning' && <div className="panel">Planning view (placeholder)</div>}
-        {activeView === 'settings' && <div className="panel">Settings view (placeholder)</div>}
-      </main>
+          {activeView === 'editor' && (
+            <div className="panel">
+              <div className="page-list">
+                {pages.map((page) => (
+                  <button
+                    key={page.id}
+                    className={`page-pill ${page.id === activePageId ? 'active' : ''}`}
+                    onClick={() => {
+                      if (handleLeave()) {
+                        setActivePageId(page.id);
+                      }
+                    }}
+                  >
+                    {page.title}
+                  </button>
+                ))}
+              </div>
+
+              <ReactQuill
+                key={activePageId}
+                value={activePage?.content ?? ''}
+                onChange={updateActivePage}
+                className="editor"
+                placeholder="Start writing this page..."
+              />
+            </div>
+          )}
+
+          {activeView === 'outline' && <div className="panel">Outline view (placeholder)</div>}
+          {activeView === 'planning' && <div className="panel">Planning view (placeholder)</div>}
+          {activeView === 'settings' && <div className="panel">Settings view (placeholder)</div>}
+        </main>
+      </div>
     </Layout>
   );
 };
