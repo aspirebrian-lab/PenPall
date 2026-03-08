@@ -102,7 +102,22 @@ router.put('/:id', async (req: Request, res: Response) => {
       return res.status(200).json(mem.books[idx]);
     }
 
-    const updatedBook = await Book.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const id = req.params.id;
+    if (typeof id !== 'string' || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid book id' });
+    }
+
+    const update = pickBookUpdate(req.body);
+    if (Object.keys(update).length === 0) {
+      return res.status(400).json({ message: 'No updatable fields provided' });
+    }
+
+    const updatedBook = await Book.findOneAndUpdate(
+      { _id: { $eq: id } },       // literal match (prevents query-object injection)
+      { $set: update },           // prevents operator injection via req.body
+      { new: true, runValidators: true }
+    );
+
     if (!updatedBook) return res.status(404).json({ message: 'Book not found' });
     return res.status(200).json(updatedBook);
   } catch (error: unknown) {
@@ -127,5 +142,29 @@ router.delete('/:id', async (req: Request, res: Response) => {
     return res.status(500).json({ message: getErrorMessage(error) });
   }
 });
+
+const pickBookUpdate = (body: unknown): Partial<{ title: string; author: string; chapters: unknown[] }> => {
+  const src = (body && typeof body === 'object' ? (body as Record<string, unknown>) : {}) as Record<
+    string,
+    unknown
+  >;
+
+  // Reject obvious operator/dotted-key injection attempts early
+  for (const key of Object.keys(src)) {
+    if (key.startsWith('$') || key.includes('.')) {
+      throw new Error(`Invalid update key: ${key}`);
+    }
+  }
+
+  const update: Partial<{ title: string; author: string; chapters: unknown[] }> = {};
+
+  if (typeof src.title === 'string') update.title = src.title;
+  if (typeof src.author === 'string') update.author = src.author;
+
+  // Keep chapters optional; tighten this later with proper typing/validation if you expose it.
+  if (Array.isArray(src.chapters)) update.chapters = src.chapters;
+
+  return update;
+};
 
 export default router;
