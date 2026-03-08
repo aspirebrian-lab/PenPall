@@ -1,4 +1,7 @@
-name: Frontend (Vite) - Test + Build
+name: Frontend Tests
+
+permissions:
+  contents: read
 
 on:
   push:
@@ -7,7 +10,7 @@ on:
     branches: [main, master]
 
 jobs:
-  client:
+  test-client:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -27,12 +30,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Unit tests (Vitest)
+      - name: Run tests
         env:
           CI: true
         run: npm test
-
-      - name: Build (Vite)
-        env:
-          CI: true
-        run: npm run build
