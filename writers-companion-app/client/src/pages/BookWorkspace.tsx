@@ -111,6 +111,18 @@ const Layout = styled.div`
     box-shadow: 0 10px 24px rgba(24, 33, 43, 0.18);
   }
 
+  .nav button:not(.active):hover {
+    background: rgba(24, 33, 43, 0.04);
+    border-color: rgba(24, 33, 43, 0.14);
+    color: #18212b;
+    transform: translateY(-1px);
+  }
+
+  .nav button.active:hover {
+    background: #0f1720;
+    transform: translateY(-1px);
+  }
+
   .content {
     padding: 0;
     display: grid;
@@ -182,10 +194,19 @@ const Layout = styled.div`
     box-shadow: 0 10px 24px rgba(24, 33, 43, 0.18);
   }
 
+  .primary-action:hover {
+    background: #0f1720;
+    transform: translateY(-1px);
+  }
+
   .secondary-action {
     background: transparent;
     color: #18212b;
     border: 1px solid rgba(24, 33, 43, 0.14);
+  }
+
+  .secondary-action:hover {
+    background: rgba(24, 33, 43, 0.04);
   }
 
   .panel {
@@ -208,9 +229,22 @@ const Layout = styled.div`
     font-weight: 600;
   }
 
+  .page-pill:hover {
+    background: rgba(255, 255, 255, 0.96);
+    border-color: rgba(24, 33, 43, 0.14);
+    transform: translateY(-1px);
+    box-shadow: 0 10px 20px rgba(31, 41, 51, 0.08);
+  }
+
   .page-pill.active {
     background: #f3efe8;
     border-color: rgba(93, 70, 48, 0.18);
+    color: #5d4630;
+  }
+
+  .page-pill.active:hover {
+    background: #f3efe8;
+    border-color: rgba(93, 70, 48, 0.24);
     color: #5d4630;
   }
 
