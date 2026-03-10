@@ -2,12 +2,43 @@ export type SyncPage = {
   id: string;
   title: string;
   content: string;
+  linkedChapterIds: string[];
+};
+
+export type OutlineStatus = 'todo' | 'in-progress' | 'done' | 'blocked';
+
+export type OutlineChapter = {
+  id: string;
+  title: string;
+};
+
+export type OutlineEvent = {
+  id: string;
+  title: string;
+  description: string;
+  status: OutlineStatus;
+  linkedChapterIds: string[];
+};
+
+export type OutlinePart = {
+  id: string;
+  title: string;
+  description: string;
+  status: OutlineStatus;
+  events: OutlineEvent[];
+};
+
+export type OutlineBundle = {
+  version: 2;
+  chapters: OutlineChapter[];
+  parts: OutlinePart[];
 };
 
 type DirHandle = FileSystemDirectoryHandle;
 
 const DB_NAME = 'writers-companion-fs';
 const STORE = 'handles';
+const OUTLINE_STATUSES: OutlineStatus[] = ['todo', 'in-progress', 'done', 'blocked'];
 
 const withDb = (): Promise<IDBDatabase> =>
   new Promise((resolve, reject) => {
@@ -35,6 +66,59 @@ const slugify = (value: string): string =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '') || 'page';
+
+const isOutlineStatus = (value: unknown): value is OutlineStatus =>
+  typeof value === 'string' && OUTLINE_STATUSES.includes(value as OutlineStatus);
+
+const normalizeChapter = (chapter: any, index: number): OutlineChapter => ({
+  id: typeof chapter?.id === 'string' && chapter.id ? chapter.id : `chapter-${index + 1}`,
+  title:
+    typeof chapter?.title === 'string' && chapter.title.trim()
+      ? chapter.title.trim()
+      : `Chapter ${index + 1}`,
+});
+
+const normalizePage = (page: any, index: number): SyncPage => ({
+  id: typeof page?.id === 'string' && page.id ? page.id : `p${index + 1}`,
+  title:
+    typeof page?.title === 'string' && page.title.trim()
+      ? page.title.trim()
+      : `Page ${index + 1}`,
+  content: typeof page?.content === 'string' ? page.content : '',
+  linkedChapterIds: Array.isArray(page?.linkedChapterIds)
+    ? page.linkedChapterIds.filter((chapterId: unknown) => typeof chapterId === 'string')
+    : [],
+});
+
+const normalizeEvent = (event: any, index: number): OutlineEvent => {
+  const linkedChapterIds = Array.isArray(event?.linkedChapterIds)
+    ? event.linkedChapterIds.filter((chapterId: unknown) => typeof chapterId === 'string')
+    : typeof event?.linkedPageId === 'string' && event.linkedPageId
+      ? [event.linkedPageId]
+      : [];
+
+  return {
+    id: typeof event?.id === 'string' && event.id ? event.id : `event-${index + 1}`,
+    title:
+      typeof event?.title === 'string' && event.title.trim()
+        ? event.title.trim()
+        : `Event ${index + 1}`,
+    description: typeof event?.description === 'string' ? event.description : '',
+    status: isOutlineStatus(event?.status) ? event.status : 'todo',
+    linkedChapterIds,
+  };
+};
+
+const normalizePart = (part: any, index: number): OutlinePart => ({
+  id: typeof part?.id === 'string' && part.id ? part.id : `part-${index + 1}`,
+  title:
+    typeof part?.title === 'string' && part.title.trim()
+      ? part.title.trim()
+      : `Part ${index + 1}`,
+  description: typeof part?.description === 'string' ? part.description : '',
+  status: isOutlineStatus(part?.status) ? part.status : 'todo',
+  events: Array.isArray(part?.events) ? part.events.map(normalizeEvent) : [],
+});
 
 export const pickDirectory = async (): Promise<DirHandle> => {
   if (!window.showDirectoryPicker) {
@@ -125,13 +209,32 @@ export const readBookBundle = async (
   if (pagesJson) {
     try {
       const parsed = JSON.parse(pagesJson);
-      pages = parsed && Array.isArray(parsed.pages) ? parsed.pages : [];
+      pages = parsed && Array.isArray(parsed.pages) ? parsed.pages.map(normalizePage) : [];
     } catch {
       // ignore malformed file
     }
   }
 
   return { title, author, pages };
+};
+
+export const readOutlineBundle = async (dir: DirHandle): Promise<OutlineBundle> => {
+  const outlineJson = await readTextFile(dir, [], 'outline.json');
+
+  if (!outlineJson) {
+    return { version: 2, chapters: [], parts: [] };
+  }
+
+  try {
+    const parsed = JSON.parse(outlineJson);
+    return {
+      version: 2,
+      chapters: Array.isArray(parsed?.chapters) ? parsed.chapters.map(normalizeChapter) : [],
+      parts: Array.isArray(parsed?.parts) ? parsed.parts.map(normalizePart) : [],
+    };
+  } catch {
+    return { version: 2, chapters: [], parts: [] };
+  }
 };
 
 export const writeBookBundle = async (
@@ -161,4 +264,11 @@ export const writeBookBundle = async (
     const fileName = `${String(index + 1).padStart(2, '0')}-${slugify(page.title)}.txt`;
     await writeTextFile(dir, ['pages'], fileName, page.content);
   }
+};
+
+export const writeOutlineBundle = async (
+  dir: DirHandle,
+  outline: OutlineBundle
+): Promise<void> => {
+  await writeTextFile(dir, [], 'outline.json', JSON.stringify(outline, null, 2));
 };
