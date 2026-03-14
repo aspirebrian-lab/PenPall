@@ -7,6 +7,24 @@ export type SyncPage = {
 
 export type OutlineStatus = 'todo' | 'in-progress' | 'done' | 'blocked';
 
+export type PlanningTaskComment = {
+  id: string;
+  body: string;
+  createdAt: string;
+};
+
+export type PlanningTask = {
+  id: string;
+  title: string;
+  description: string;
+  date: string;
+  status: OutlineStatus;
+  comments: PlanningTaskComment[];
+  linkedChapterIds: string[];
+  linkedPartIds: string[];
+  linkedEventIds: string[];
+};
+
 export type OutlineChapter = {
   id: string;
   title: string;
@@ -32,6 +50,7 @@ export type OutlineBundle = {
   version: 2;
   chapters: OutlineChapter[];
   parts: OutlinePart[];
+  tasks: PlanningTask[];
 };
 
 type DirHandle = FileSystemDirectoryHandle;
@@ -69,6 +88,11 @@ const slugify = (value: string): string =>
 
 const isOutlineStatus = (value: unknown): value is OutlineStatus =>
   typeof value === 'string' && OUTLINE_STATUSES.includes(value as OutlineStatus);
+
+const normalizeIsoDate = (value: unknown): string =>
+  typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? value
+    : new Date().toISOString().slice(0, 10);
 
 const normalizeChapter = (chapter: any, index: number): OutlineChapter => ({
   id: typeof chapter?.id === 'string' && chapter.id ? chapter.id : `chapter-${index + 1}`,
@@ -118,6 +142,43 @@ const normalizePart = (part: any, index: number): OutlinePart => ({
   description: typeof part?.description === 'string' ? part.description : '',
   status: isOutlineStatus(part?.status) ? part.status : 'todo',
   events: Array.isArray(part?.events) ? part.events.map(normalizeEvent) : [],
+});
+
+const normalizeTaskComment = (comment: any, index: number): PlanningTaskComment => ({
+  id: typeof comment?.id === 'string' && comment.id ? comment.id : `comment-${index + 1}`,
+  body: typeof comment?.body === 'string' ? comment.body : '',
+  createdAt:
+    typeof comment?.createdAt === 'string' && comment.createdAt
+      ? comment.createdAt
+      : '1970-01-01T00:00:00.000Z',
+});
+
+const normalizeTask = (task: any, index: number): PlanningTask => ({
+  id: typeof task?.id === 'string' && task.id ? task.id : `task-${index + 1}`,
+  title:
+    typeof task?.title === 'string' && task.title.trim()
+      ? task.title.trim()
+      : `Task ${index + 1}`,
+  description: typeof task?.description === 'string' ? task.description : '',
+  date: normalizeIsoDate(task?.date),
+  status: isOutlineStatus(task?.status) ? task.status : 'todo',
+  comments: Array.isArray(task?.comments) ? task.comments.map(normalizeTaskComment) : [],
+  linkedChapterIds: Array.isArray(task?.linkedChapterIds)
+    ? task.linkedChapterIds.filter((chapterId: unknown) => typeof chapterId === 'string')
+    : [],
+  linkedPartIds: Array.isArray(task?.linkedPartIds)
+    ? task.linkedPartIds.filter((partId: unknown) => typeof partId === 'string')
+    : [],
+  linkedEventIds: Array.isArray(task?.linkedEventIds)
+    ? task.linkedEventIds.filter((eventId: unknown) => typeof eventId === 'string')
+    : [],
+});
+
+export const normalizeOutlineBundle = (outline: any): OutlineBundle => ({
+  version: 2,
+  chapters: Array.isArray(outline?.chapters) ? outline.chapters.map(normalizeChapter) : [],
+  parts: Array.isArray(outline?.parts) ? outline.parts.map(normalizePart) : [],
+  tasks: Array.isArray(outline?.tasks) ? outline.tasks.map(normalizeTask) : [],
 });
 
 export const pickDirectory = async (): Promise<DirHandle> => {
@@ -222,18 +283,13 @@ export const readOutlineBundle = async (dir: DirHandle): Promise<OutlineBundle> 
   const outlineJson = await readTextFile(dir, [], 'outline.json');
 
   if (!outlineJson) {
-    return { version: 2, chapters: [], parts: [] };
+    return { version: 2, chapters: [], parts: [], tasks: [] };
   }
 
   try {
-    const parsed = JSON.parse(outlineJson);
-    return {
-      version: 2,
-      chapters: Array.isArray(parsed?.chapters) ? parsed.chapters.map(normalizeChapter) : [],
-      parts: Array.isArray(parsed?.parts) ? parsed.parts.map(normalizePart) : [],
-    };
+    return normalizeOutlineBundle(JSON.parse(outlineJson));
   } catch {
-    return { version: 2, chapters: [], parts: [] };
+    return { version: 2, chapters: [], parts: [], tasks: [] };
   }
 };
 
