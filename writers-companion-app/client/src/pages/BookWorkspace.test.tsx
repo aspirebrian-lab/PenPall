@@ -37,6 +37,12 @@ vi.mock('../utils/fsAccess', () => ({
   writeBookBundle: vi.fn(),
   readOutlineBundle: vi.fn(),
   writeOutlineBundle: vi.fn(),
+  normalizeOutlineBundle: vi.fn((outline: any) => ({
+    version: 2,
+    chapters: Array.isArray(outline?.chapters) ? outline.chapters : [],
+    parts: Array.isArray(outline?.parts) ? outline.parts : [],
+    tasks: Array.isArray(outline?.tasks) ? outline.tasks : [],
+  })),
 }));
 
 vi.mock('react-quill-new', () => {
@@ -105,6 +111,7 @@ describe('BookWorkspace', () => {
       version: 2,
       chapters: [],
       parts: [],
+      tasks: [],
     });
     (mockedWriteOutlineBundle as any).mockResolvedValue(undefined);
   });
@@ -189,6 +196,7 @@ describe('BookWorkspace', () => {
           ],
         },
       ],
+      tasks: [],
     });
 
     renderWorkspace();
@@ -232,6 +240,7 @@ describe('BookWorkspace', () => {
           ],
         },
       ],
+      tasks: [],
     });
 
     renderWorkspace();
@@ -264,6 +273,7 @@ describe('BookWorkspace', () => {
           ],
         },
       ],
+      tasks: [],
     });
 
     renderWorkspace();
@@ -305,6 +315,7 @@ describe('BookWorkspace', () => {
           ],
         },
       ],
+      tasks: [],
     });
 
     renderWorkspace();
@@ -363,6 +374,19 @@ describe('BookWorkspace', () => {
           ],
         },
       ],
+      tasks: [
+        {
+          id: 'task-1',
+          title: 'Draft opening scene',
+          description: 'Focus on the inciting action before revising the prose.',
+          date: new Date().toISOString().slice(0, 10),
+          status: 'in-progress',
+          comments: [],
+          linkedChapterIds: [],
+          linkedPartIds: [],
+          linkedEventIds: ['event-1'],
+        },
+      ],
     });
 
     renderWorkspace();
@@ -385,6 +409,32 @@ describe('BookWorkspace', () => {
     const pageList = document.querySelector('.page-list');
     expect(pageList).not.toBeNull();
     expect(within(pageList as HTMLElement).getByText('Chapter One')).toBeInTheDocument();
+    expect(within(pageLinkPanel as HTMLElement).getByText('Draft opening scene')).toBeInTheDocument();
+  });
+
+  it('creates a planning task on the calendar and stores comments', async () => {
+    renderWorkspace();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Planning' }));
+
+    const todayLabel = new Intl.DateTimeFormat('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    }).format(new Date());
+
+    fireEvent.click(await screen.findByRole('button', { name: `Add task for ${todayLabel}` }));
+
+    const titleField = await screen.findByDisplayValue('New task');
+    fireEvent.change(titleField, { target: { value: 'Revise chapter opening' } });
+
+    fireEvent.change(await screen.findByPlaceholderText('Add a comment about this task'), {
+      target: { value: 'Need sharper stakes.' },
+    });
+    fireEvent.click(await screen.findByRole('button', { name: 'Add Comment' }));
+
+    expect(await screen.findByDisplayValue('Revise chapter opening')).toBeInTheDocument();
+    expect(await screen.findByText('Need sharper stakes.')).toBeInTheDocument();
   });
 
   it('imports as a new page when user cancels replace', async () => {
