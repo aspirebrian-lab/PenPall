@@ -36,6 +36,14 @@ jobs:
         working-directory: writers-companion-app/server
         run: npm ci
 
+      - name: Run client coverage
+        working-directory: writers-companion-app/client
+        run: npm run test:coverage
+
+      - name: Run server coverage
+        working-directory: writers-companion-app/server
+        run: npm run test:coverage
+
       - name: Build client
         working-directory: writers-companion-app/client
         run: npm run build
@@ -45,7 +53,7 @@ jobs:
         run: npm run build
 
       - name: Run SonarCloud scan
-        uses: SonarSource/sonarqube-scan-action@2f77a1ec69fb1d595b06f35ab27e97605bdef703 # v5.3.2
+        uses: SonarSource/sonarqube-scan-action@2f77a1ec69fb1d595b06f35ab27e97605bdef703
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

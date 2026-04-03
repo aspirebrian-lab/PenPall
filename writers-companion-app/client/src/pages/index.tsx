@@ -1,12 +1,9 @@
 import React from 'react';
-import ReactDOM from 'react-dom';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Dashboard from './Dashboard';
 import Editor from '../components/Editor';
 import Chatbox from '../components/Chatbox';
 import StoryPanel from '../components/StoryPanel';
-import { StoryProvider } from '../hooks/useStoryContext';
-import { GlobalStyle } from '../styles/global';
 import BookWorkspace from './BookWorkspace';
 
 const HomePage: React.FC = () => {
@@ -30,15 +27,5 @@ const HomePage: React.FC = () => {
     </Router>
   );
 };
-
-ReactDOM.render(
-  <React.StrictMode>
-    <GlobalStyle />
-    <StoryProvider>
-      <HomePage />
-    </StoryProvider>
-  </React.StrictMode>,
-  document.getElementById('root')
-);
 
 export default HomePage;

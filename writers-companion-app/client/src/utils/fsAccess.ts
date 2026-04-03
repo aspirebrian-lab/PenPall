@@ -57,7 +57,7 @@ type DirHandle = FileSystemDirectoryHandle;
 
 const DB_NAME = 'writers-companion-fs';
 const STORE = 'handles';
-const OUTLINE_STATUSES: OutlineStatus[] = ['todo', 'in-progress', 'done', 'blocked'];
+const OUTLINE_STATUSES = new Set<OutlineStatus>(['todo', 'in-progress', 'done', 'blocked']);
 
 const withDb = (): Promise<IDBDatabase> =>
   new Promise((resolve, reject) => {
@@ -68,14 +68,14 @@ const withDb = (): Promise<IDBDatabase> =>
       }
     };
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    request.onerror = () => reject(new Error(request.error?.message));
   });
 
 const waitForTransaction = (tx: IDBTransaction): Promise<void> =>
   new Promise((resolve, reject) => {
     tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-    tx.onabort = () => reject(tx.error);
+    tx.onerror = () => reject(new Error(tx.error?.message));
+    tx.onabort = () => reject(new Error(tx.error?.message));
   });
 
 const getHandleKey = (bookId: string) => `book:${bookId}`;
@@ -83,11 +83,11 @@ const getHandleKey = (bookId: string) => `book:${bookId}`;
 const slugify = (value: string): string =>
   value
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'page';
+    .replaceAll(new RegExp(/[^a-z0-9]+/g), '-')
+    .replaceAll(new RegExp(/^-+|-+$/g), '') || 'page';
 
 const isOutlineStatus = (value: unknown): value is OutlineStatus =>
-  typeof value === 'string' && OUTLINE_STATUSES.includes(value as OutlineStatus);
+  typeof value === 'string' && OUTLINE_STATUSES.has(value as OutlineStatus);
 
 const normalizeIsoDate = (value: unknown): string =>
   typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
@@ -117,9 +117,13 @@ const normalizePage = (page: any, index: number): SyncPage => ({
 const normalizeEvent = (event: any, index: number): OutlineEvent => {
   const linkedChapterIds = Array.isArray(event?.linkedChapterIds)
     ? event.linkedChapterIds.filter((chapterId: unknown) => typeof chapterId === 'string')
-    : typeof event?.linkedPageId === 'string' && event.linkedPageId
-      ? [event.linkedPageId]
-      : [];
+    : [];
+  
+  const linkedPageIdArray = typeof event?.linkedPageId === 'string' && event.linkedPageId
+    ? [event.linkedPageId]
+    : [];
+
+  const finalLinkedChapterIds = linkedChapterIds.length > 0 ? linkedChapterIds : linkedPageIdArray;
 
   return {
     id: typeof event?.id === 'string' && event.id ? event.id : `event-${index + 1}`,
@@ -129,7 +133,7 @@ const normalizeEvent = (event: any, index: number): OutlineEvent => {
         : `Event ${index + 1}`,
     description: typeof event?.description === 'string' ? event.description : '',
     status: isOutlineStatus(event?.status) ? event.status : 'todo',
-    linkedChapterIds,
+    linkedChapterIds: finalLinkedChapterIds,
   };
 };
 
@@ -182,10 +186,10 @@ export const normalizeOutlineBundle = (outline: any): OutlineBundle => ({
 });
 
 export const pickDirectory = async (): Promise<DirHandle> => {
-  if (!window.showDirectoryPicker) {
+  if (!(globalThis as any).showDirectoryPicker) {
     throw new Error('Directory picker is not supported in this browser.');
   }
-  return window.showDirectoryPicker();
+  return (globalThis as any).showDirectoryPicker();
 };
 
 export const saveBookDirHandle = async (bookId: string, handle: DirHandle): Promise<void> => {
@@ -205,7 +209,7 @@ export const loadBookDirHandle = async (bookId: string): Promise<DirHandle | nul
       const handle: DirHandle | null = request.result ? request.result : null;
       resolve(handle);
     };
-    request.onerror = () => reject(request.error);
+    request.onerror = () => reject(new Error(request.error?.message));
   });
 };
 
@@ -260,8 +264,8 @@ export const readBookBundle = async (
   if (bookJson) {
     try {
       const parsed = JSON.parse(bookJson);
-      title = parsed && parsed.title ? parsed.title : undefined;
-      author = parsed && parsed.author ? parsed.author : undefined;
+      title = parsed?.title ? parsed.title : undefined;
+      author = parsed?.author ? parsed.author : undefined;
     } catch {
       // ignore malformed file
     }
