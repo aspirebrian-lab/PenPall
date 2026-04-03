@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { getBooks, createBook } from '../services/api';
-import { Book } from '../services/api';
+import { getBooks, createBook, Book } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { pickDirectory, saveBookDirHandle, readBookBundle } from '../utils/fsAccess';
 

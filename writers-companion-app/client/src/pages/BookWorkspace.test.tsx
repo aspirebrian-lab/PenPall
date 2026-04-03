@@ -441,7 +441,7 @@ describe('BookWorkspace', () => {
     const dir = { name: 'Folder' } as any;
     (mockedLoadBookDirHandle as any).mockResolvedValue(dir);
 
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const confirmSpy = vi.spyOn(globalThis, 'confirm').mockReturnValue(false);
 
     const { container } = renderWorkspace();
 
@@ -460,7 +460,7 @@ describe('BookWorkspace', () => {
   });
 
   it('keeps the current page selected when leave is cancelled', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const confirmSpy = vi.spyOn(globalThis, 'confirm').mockReturnValue(false);
 
     localStorage.setItem(
       'book:book-1:pages',
@@ -488,7 +488,7 @@ describe('BookWorkspace', () => {
   });
 
   it('does not navigate back when leave is cancelled', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const confirmSpy = vi.spyOn(globalThis, 'confirm').mockReturnValue(false);
 
     renderWorkspace();
 
@@ -517,7 +517,7 @@ describe('BookWorkspace', () => {
     const dir = { name: 'Folder' } as any;
     (mockedLoadBookDirHandle as any).mockResolvedValue(dir);
 
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const confirmSpy = vi.spyOn(globalThis, 'confirm').mockReturnValue(true);
 
     const { container } = renderWorkspace();
 
@@ -562,7 +562,7 @@ describe('BookWorkspace', () => {
 
   it('navigates back when leave is confirmed', async () => {
     mockedNavigate.mockReset();
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const confirmSpy = vi.spyOn(globalThis, 'confirm').mockReturnValue(true);
 
     renderWorkspace();
 
@@ -583,7 +583,7 @@ describe('BookWorkspace', () => {
 
   it('navigates back immediately when there are no unsaved changes', async () => {
     mockedNavigate.mockReset();
-    const confirmSpy = vi.spyOn(window, 'confirm');
+    const confirmSpy = vi.spyOn(globalThis, 'confirm');
 
     renderWorkspace();
 
@@ -624,7 +624,7 @@ describe('BookWorkspace', () => {
     (mockedLoadBookDirHandle as any).mockResolvedValue(dir);
     (mockedWriteBookBundle as any).mockRejectedValueOnce(new Error('disk unavailable'));
 
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const confirmSpy = vi.spyOn(globalThis, 'confirm').mockReturnValue(false);
 
     const { container } = renderWorkspace();
 

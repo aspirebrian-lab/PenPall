@@ -515,7 +515,7 @@ const buildTasksByDate = (tasks: PlanningTask[]): Map<string, PlanningTask[]> =>
     nextMap.set(task.date, existingTasks);
   });
 
-  nextMap.forEach((taskList) => taskList.sort(comparePlanningTasks));
+  nextMap.forEach((taskList, date) => nextMap.set(date, taskList.toSorted(comparePlanningTasks)));
 
   return nextMap;
 };
@@ -914,7 +914,7 @@ const BookWorkspace: React.FC = () => {
       return true;
     }
 
-    return window.confirm('You have unsaved changes. Leave anyway?');
+    return globalThis.confirm('You have unsaved changes. Leave anyway?');
   };
 
   const handleSelectPage = (pageId: string) => {
@@ -941,10 +941,10 @@ const BookWorkspace: React.FC = () => {
       await saveToFolder(pages, outline);
       setIsDirty(false);
       setSaveMessage('Saved to folder');
-      window.setTimeout(() => setSaveMessage(''), 2000);
+      globalThis.setTimeout(() => setSaveMessage(''), 2000);
     } catch {
       setSaveMessage('Local save only');
-      window.setTimeout(() => setSaveMessage(''), 2000);
+      globalThis.setTimeout(() => setSaveMessage(''), 2000);
     }
   };
 
@@ -961,7 +961,7 @@ const BookWorkspace: React.FC = () => {
 
     try {
       const text = await file.text();
-      const replaceCurrent = window.confirm(
+      const replaceCurrent = globalThis.confirm(
         'Press OK to replace the current page. Press Cancel to import as a new page.'
       );
 
@@ -984,7 +984,7 @@ const BookWorkspace: React.FC = () => {
         setSaveMessage('Page imported locally');
       }
 
-      window.setTimeout(() => setSaveMessage(''), 2000);
+      globalThis.setTimeout(() => setSaveMessage(''), 2000);
     } finally {
       event.target.value = '';
     }
@@ -1124,8 +1124,6 @@ const BookWorkspace: React.FC = () => {
     case 'settings':
       activeViewContent = <SettingsView />;
       break;
-    default:
-      activeViewContent = null;
   }
 
   return (
