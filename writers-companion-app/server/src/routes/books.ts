@@ -201,39 +201,4 @@ const src: Record<string, unknown> =
   return update;
 };
 
-type BookCreate = {
-  title: string;
-  author: string;
-  chapters?: unknown[];
-};
-
-const pickBookCreate = (body: unknown): BookCreate => {
-  const src = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
-
-  for (const key of Object.keys(src)) {
-    if (key.startsWith('$') || key.includes('.')) {
-      throw new Error(`Invalid create key: ${key}`);
-    }
-  }
-
-  if (typeof src.title !== 'string' || !src.title.trim()) {
-    throw new Error('title is required');
-  }
-
-  if (typeof src.author !== 'string' || !src.author.trim()) {
-    throw new Error('author is required');
-  }
-
-  const create: BookCreate = {
-    title: src.title,
-    author: src.author,
-  };
-
-  if (Array.isArray(src.chapters)) {
-    create.chapters = src.chapters;
-  }
-
-  return create;
-};
-
 export default router;
