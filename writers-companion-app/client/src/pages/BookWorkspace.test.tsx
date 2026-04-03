@@ -458,4 +458,105 @@ describe('BookWorkspace', () => {
 
     confirmSpy.mockRestore();
   });
+
+  it('keeps the current page selected when leave is cancelled', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+
+    localStorage.setItem(
+      'book:book-1:pages',
+      JSON.stringify([
+        { id: 'p1', title: 'Page 1', content: 'Page one', linkedChapterIds: [] },
+        { id: 'p2', title: 'Page 2', content: 'Page two', linkedChapterIds: [] },
+      ])
+    );
+
+    renderWorkspace();
+
+    await screen.findByRole('button', { name: 'Page 2' });
+
+    const quill = await screen.findByTestId('quill');
+    fireEvent.change(quill, { target: { value: 'Unsaved edits' } });
+
+    await screen.findByText('Unsaved changes');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Page 2' }));
+
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(screen.getByTestId('quill')).toHaveValue('Unsaved edits');
+
+    confirmSpy.mockRestore();
+  });
+
+  it('does not navigate back when leave is cancelled', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+
+    renderWorkspace();
+
+    await screen.findByRole('button', { name: 'Page 1' });
+
+    const quill = await screen.findByTestId('quill');
+    fireEvent.change(quill, {
+      target: { value: 'Unsaved edits' },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('quill')).toHaveValue('Unsaved edits');
+    });
+
+    await screen.findByText('Unsaved changes');
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Back to Dashboard' })[0]);
+
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(mockedNavigate).not.toHaveBeenCalled();
+
+    confirmSpy.mockRestore();
+  });
+
+  it('replaces the current page when the user confirms import replacement', async () => {
+    const dir = { name: 'Folder' } as any;
+    (mockedLoadBookDirHandle as any).mockResolvedValue(dir);
+
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    const { container } = renderWorkspace();
+
+    await screen.findByRole('button', { name: 'Page 1' });
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(['Replacement body'], 'Chapter 9.txt', { type: 'text/plain' });
+    Object.defineProperty(file, 'text', { value: async () => 'Replacement body' });
+
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    await waitFor(() => expect(confirmSpy).toHaveBeenCalled());
+    expect(await screen.findByRole('button', { name: 'Chapter 9' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Page 1' })).not.toBeInTheDocument();
+    expect(screen.getByTestId('quill')).toHaveValue('Replacement body');
+
+    confirmSpy.mockRestore();
+  });
+
+  it('clears the planner when a selected task is deleted', async () => {
+    renderWorkspace();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Planning' }));
+
+    const todayLabel = new Intl.DateTimeFormat('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    }).format(new Date());
+
+    fireEvent.click(await screen.findByRole('button', { name: `Add task for ${todayLabel}` }));
+    expect(await screen.findByDisplayValue('New task')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Task' }));
+
+    expect(
+      await screen.findByText(
+        'Create a task for the selected date, or pick a task block from the calendar to edit it.'
+      )
+    ).toBeInTheDocument();
+  });
 });
