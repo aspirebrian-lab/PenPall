@@ -64,7 +64,25 @@ router.post('/', booksWriteLimiter, async (req: Request, res: Response) => {
       return res.status(201).json(created);
     }
 
-    const newBook = new Book(req.body);
+    const src = req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
+
+    if (typeof src.title !== 'string' || !src.title.trim()) {
+      return res.status(400).json({ message: 'title is required' });
+    }
+
+    if (typeof src.author !== 'string' || !src.author.trim()) {
+      return res.status(400).json({ message: 'author is required' });
+    }
+
+    const newBook = new Book({
+      title: src.title.trim(),
+      author: src.author.trim(),
+    });
+
+    if (Array.isArray(src.chapters)) {
+      newBook.chapters = src.chapters;
+    }
+
     await newBook.save();
     return res.status(201).json(newBook);
   } catch (error: unknown) {
@@ -110,9 +128,14 @@ router.put('/:id', booksWriteLimiter, async (req: Request, res: Response) => {
       const idx = mem.books.findIndex((b) => b._id === req.params.id);
       if (idx === -1) return res.status(404).json({ message: 'Book not found' });
 
+      const update = pickBookUpdate(req.body);
+      if (Object.keys(update).length === 0) {
+        return res.status(400).json({ message: 'No updatable fields provided' });
+      }
+
       mem.books[idx] = {
         ...mem.books[idx],
-        ...req.body,
+        ...update,
         updatedAt: new Date().toISOString(),
       };
       return res.status(200).json(mem.books[idx]);
@@ -160,10 +183,8 @@ router.delete('/:id', booksWriteLimiter, async (req: Request, res: Response) => 
 });
 
 const pickBookUpdate = (body: unknown): Partial<{ title: string; author: string; chapters: unknown[] }> => {
-  const src = (body && typeof body === 'object' ? (body as Record<string, unknown>) : {}) as Record<
-    string,
-    unknown
-  >;
+const src: Record<string, unknown> =
+  body && typeof body === 'object' && !Array.isArray(body) ? body as Record<string, unknown> : {};
 
   for (const key of Object.keys(src)) {
     if (key.startsWith('$') || key.includes('.')) {
@@ -178,6 +199,41 @@ const pickBookUpdate = (body: unknown): Partial<{ title: string; author: string;
   if (Array.isArray(src.chapters)) update.chapters = src.chapters;
 
   return update;
+};
+
+type BookCreate = {
+  title: string;
+  author: string;
+  chapters?: unknown[];
+};
+
+const pickBookCreate = (body: unknown): BookCreate => {
+  const src = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+
+  for (const key of Object.keys(src)) {
+    if (key.startsWith('$') || key.includes('.')) {
+      throw new Error(`Invalid create key: ${key}`);
+    }
+  }
+
+  if (typeof src.title !== 'string' || !src.title.trim()) {
+    throw new Error('title is required');
+  }
+
+  if (typeof src.author !== 'string' || !src.author.trim()) {
+    throw new Error('author is required');
+  }
+
+  const create: BookCreate = {
+    title: src.title,
+    author: src.author,
+  };
+
+  if (Array.isArray(src.chapters)) {
+    create.chapters = src.chapters;
+  }
+
+  return create;
 };
 
 export default router;

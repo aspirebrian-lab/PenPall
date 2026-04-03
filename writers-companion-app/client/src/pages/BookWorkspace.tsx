@@ -49,14 +49,14 @@ const normalizePages = (rawPages: unknown): Page[] => {
   }
 
   const normalizedPages = rawPages.map((page, index) => ({
-    id: typeof (page as any)?.id === 'string' && (page as any).id ? (page as any).id : `p${index + 1}`,
+    id: typeof page?.id === 'string' && page.id ? page.id : `p${index + 1}`,
     title:
-      typeof (page as any)?.title === 'string' && (page as any).title.trim()
-        ? (page as any).title.trim()
+      typeof page?.title === 'string' && page.title.trim()
+        ? page.title.trim()
         : `Page ${index + 1}`,
-    content: typeof (page as any)?.content === 'string' ? (page as any).content : '',
-    linkedChapterIds: Array.isArray((page as any)?.linkedChapterIds)
-      ? (page as any).linkedChapterIds.filter((chapterId: unknown) => typeof chapterId === 'string')
+    content: typeof page?.content === 'string' ? page.content : '',
+    linkedChapterIds: Array.isArray(page?.linkedChapterIds)
+      ? page.linkedChapterIds.filter((chapterId: unknown) => typeof chapterId === 'string')
       : [],
   }));
 
@@ -1413,13 +1413,17 @@ const Layout = styled.div`
   }
 `;
 
+type WorkspaceView = 'editor' | 'outline' | 'planning' | 'settings';
+
+const SettingsView: React.FC = () => <div className="panel">Settings view (placeholder)</div>;
+
 const BookWorkspace: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const importInputRef = useRef<HTMLInputElement | null>(null);
 
   const [book, setBook] = useState<Book | null>(null);
-  const [activeView, setActiveView] = useState<'editor' | 'outline' | 'planning' | 'settings'>('editor');
+  const [activeView, setActiveView] = useState<WorkspaceView>('editor');
   const [saveMessage, setSaveMessage] = useState<string>('');
   const [pages, setPages] = useState<Page[]>([]);
   const [outline, setOutline] = useState<OutlineBundle>(defaultOutline());
@@ -1778,6 +1782,88 @@ const BookWorkspace: React.FC = () => {
       ),
     }));
     setIsDirty(true);
+  };
+
+  const renderActiveView = () => {
+    switch (activeView) {
+      case 'editor':
+        return (
+          <EditorView
+            pages={pages}
+            activePage={activePage}
+            activePageId={activePageId}
+            outline={outline}
+            chapterMap={chapterMap}
+            chapterUsageMap={chapterUsageMap}
+            currentPlannedTask={currentPlannedTask}
+            relevantPlanningTasks={relevantPlanningTasks}
+            onSelectPage={(pageId) => {
+              if (handleLeave()) {
+                setActivePageId(pageId);
+              }
+            }}
+            onTogglePageChapter={togglePageChapter}
+            onOpenTaskInPlanning={openTaskInPlanning}
+            onUpdateActivePage={updateActivePage}
+            getTaskLinkBadges={getTaskLinkBadges}
+          />
+        );
+      case 'outline':
+        return (
+          <OutlineView
+            outline={outline}
+            outlineEvents={outlineEvents}
+            completedParts={completedParts}
+            completedEvents={completedEvents}
+            chapterMap={chapterMap}
+            chapterDraftByEventId={chapterDraftByEventId}
+            addingChapterEventId={addingChapterEventId}
+            onAddPart={addPart}
+            onUpdatePart={updatePart}
+            onRemovePart={removePart}
+            onAddEvent={addEvent}
+            onUpdateEvent={updateEvent}
+            onRemoveEvent={removeEvent}
+            onToggleEventChapter={toggleEventChapter}
+            onUpdateChapterDraft={updateChapterDraft}
+            onStartAddingChapter={startAddingChapter}
+            onCancelAddingChapter={cancelAddingChapter}
+            onCreateChapterForEvent={createChapterForEvent}
+          />
+        );
+      case 'planning':
+        return (
+          <PlanningView
+            outline={outline}
+            outlineEvents={outlineEvents}
+            tasksByDate={tasksByDate}
+            calendarDays={calendarDays}
+            displayMonth={displayMonth}
+            selectedPlanningDate={selectedPlanningDate}
+            selectedTask={selectedTask}
+            selectedTaskId={selectedTaskId}
+            taskCommentDraft={taskCommentDraft}
+            tasksThisWeek={tasksThisWeek}
+            inProgressTasks={inProgressTasks}
+            blockedTasks={blockedTasks}
+            eventContextMap={eventContextMap}
+            onSetDisplayMonth={setDisplayMonth}
+            onSetSelectedPlanningDate={setSelectedPlanningDate}
+            onSetSelectedTaskId={setSelectedTaskId}
+            onSetTaskCommentDraft={setTaskCommentDraft}
+            onAddTask={addTask}
+            onUpdateTask={updateTask}
+            onRemoveTask={removeTask}
+            onToggleTaskLink={toggleTaskLink}
+            onAddTaskComment={addTaskComment}
+            getTaskLinkBadges={getTaskLinkBadges}
+          />
+        );
+      case 'settings':
+        return <SettingsView />;
+      default:
+        return null;
+    }
   };
 
   const updateEvent = (
@@ -2205,858 +2291,992 @@ const BookWorkspace: React.FC = () => {
             </div>
           </div>
 
-          {activeView === 'editor' && (
-            <div className="panel">
-              <div className="page-list">
-                {pages.map((page) => (
-                  <button
-                    key={page.id}
-                    className={`page-pill ${page.id === activePageId ? 'active' : ''}`}
-                    onClick={() => {
-                      if (handleLeave()) {
-                        setActivePageId(page.id);
-                      }
-                    }}
-                  >
-                    <span className="page-pill-title">{page.title}</span>
-                    {page.linkedChapterIds.length > 0 ? (
-                      <span className="page-pill-tags">
-                        {page.linkedChapterIds
-                          .map((chapterId) => chapterMap.get(chapterId))
-                          .filter(Boolean)
-                          .slice(0, 1)
-                          .map((chapter) => (
-                            <span key={chapter!.id} className="page-pill-tag">
-                              {chapter!.title}
-                            </span>
-                          ))}
-                        {page.linkedChapterIds.length > 1 ? (
-                          <span className="page-pill-tag">+{page.linkedChapterIds.length - 1}</span>
-                        ) : null}
-                      </span>
-                    ) : null}
-                  </button>
-                ))}
-              </div>
+          {renderActiveView()}
 
-              {activePage ? (
-                <div className="page-link-panel">
-                  <div className="page-link-label">Page chapter tags</div>
 
-                  {outline.chapters.length === 0 ? (
-                    <div className="page-link-empty">
-                      No chapters exist yet. Add chapters in the outline view first.
-                    </div>
-                  ) : (
-                    <details className="page-link-dropdown">
-                      <summary className="page-link-trigger">
-                        <div className="page-link-trigger-copy">
-                          <span className="page-link-trigger-title">Chapter tags</span>
-                          <span className="page-link-trigger-subtitle">
-                            {activePage.linkedChapterIds.length > 0
-                              ? `${activePage.linkedChapterIds.length} linked`
-                              : 'No chapter tags selected'}
-                          </span>
-                        </div>
-
-                        <div className="page-link-trigger-meta">
-                          {activePage.linkedChapterIds
-                            .map((chapterId) => chapterMap.get(chapterId))
-                            .filter(Boolean)
-                            .slice(0, 2)
-                            .map((chapter) => (
-                              <span key={chapter!.id} className="page-link-trigger-tag">
-                                {chapter!.title}
-                              </span>
-                            ))}
-                          {activePage.linkedChapterIds.length > 2 ? (
-                            <span className="page-link-trigger-count">
-                              +{activePage.linkedChapterIds.length - 2}
-                            </span>
-                          ) : null}
-                          <span className="page-link-caret">▾</span>
-                        </div>
-                      </summary>
-
-                      <div className="page-link-menu">
-                        <div className="page-link-options">
-                          {outline.chapters.map((chapter) => {
-                            const contexts = chapterUsageMap.get(chapter.id) ?? [];
-                            const isLinked = activePage.linkedChapterIds.includes(chapter.id);
-
-                            return (
-                              <label
-                                key={chapter.id}
-                                className={`page-link-option ${isLinked ? 'is-linked' : ''}`}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={isLinked}
-                                  onChange={() => togglePageChapter(activePage.id, chapter.id)}
-                                />
-                                <div className="page-link-copy">
-                                  <span className="page-link-title">{chapter.title}</span>
-                                  {contexts.length > 0 ? (
-                                    <div className="page-link-contexts">
-                                      {contexts.map((context) => (
-                                        <React.Fragment key={`${context.partId}:${context.eventId}`}>
-                                          <span className="page-meta-tag part-tag">{context.partTitle}</span>
-                                          <span className="page-meta-tag">{context.eventTitle}</span>
-                                        </React.Fragment>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <span className="page-link-empty-context">
-                                      This chapter is not linked to an event yet.
-                                    </span>
-                                  )}
-                                </div>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </details>
-                  )}
-
-                  {activePage.linkedChapterIds.length > 0 ? (
-                    <div className="page-linked-chapters">
-                      {activePage.linkedChapterIds
-                        .map((chapterId) => chapterMap.get(chapterId))
-                        .filter(Boolean)
-                        .map((chapter) => (
-                          <span key={chapter!.id} className="page-linked-chapter-tag">
-                            {chapter!.title}
-                          </span>
-                        ))}
-                    </div>
-                  ) : null}
-
-                  <div className="planned-task-panel">
-                    <div className="page-link-label">Current plan</div>
-                    {currentPlannedTask ? (
-                      <div className="planned-task-card">
-                        <div className="planned-task-card-header">
-                          <div>
-                            <div className="planned-task-title">{currentPlannedTask.title}</div>
-                            <div className="planned-task-subtitle">
-                              {fullDateFormatter.format(parseDateInputValue(currentPlannedTask.date))} ·{' '}
-                              {statusLabel[currentPlannedTask.status]}
-                            </div>
-                          </div>
-
-                          <button
-                            className="ghost-action"
-                            onClick={() => openTaskInPlanning(currentPlannedTask)}
-                          >
-                            Open in Planning
-                          </button>
-                        </div>
-
-                        {currentPlannedTask.description ? (
-                          <div className="planned-task-description">{currentPlannedTask.description}</div>
-                        ) : null}
-
-                        <div className="planned-task-tags">
-                          <div className="planned-task-tag-list">
-                            <span className={`task-status-badge status-${currentPlannedTask.status}`}>
-                              {statusLabel[currentPlannedTask.status]}
-                            </span>
-                            <span className="planning-count-pill">
-                              {currentPlannedTask.comments.length} comment
-                              {currentPlannedTask.comments.length === 1 ? '' : 's'}
-                            </span>
-                            {getTaskLinkBadges(currentPlannedTask).map((badge) => (
-                              <span key={badge.key} className={`planned-task-tag kind-${badge.kind}`}>
-                                {badge.label}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-
-                        {relevantPlanningTasks.length > 1 ? (
-                          <div className="planned-task-queue">
-                            {relevantPlanningTasks
-                              .filter((task) => task.id !== currentPlannedTask.id)
-                              .slice(0, 3)
-                              .map((task) => (
-                                <button
-                                  key={task.id}
-                                  className="planned-task-queue-item"
-                                  onClick={() => openTaskInPlanning(task)}
-                                >
-                                  <span className="planned-task-queue-header">
-                                    <span className="queue-task-title">{task.title}</span>
-                                    <span className="queue-task-date">
-                                      {fullDateFormatter.format(parseDateInputValue(task.date))}
-                                    </span>
-                                  </span>
-                                  <span className="planned-task-subtitle">
-                                    {statusLabel[task.status]}
-                                  </span>
-                                </button>
-                              ))}
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : (
-                      <div className="planned-task-empty">
-                        {activePage.linkedChapterIds.length > 0
-                          ? 'No planned tasks are linked to this page yet. Add them from Planning.'
-                          : 'Link this page to a chapter to surface tasks tied to its chapters, parts, and events.'}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : null}
-
-              <ReactQuill
-                key={activePageId}
-                value={activePage?.content ?? ''}
-                onChange={updateActivePage}
-                className="editor"
-                placeholder="Start writing this page..."
-              />
-            </div>
-          )}
-
-          {activeView === 'outline' && (
-            <div className="panel outline-panel">
-              <div className="outline-summary">
-                <div className="summary-card">
-                  <span>Parts</span>
-                  <strong>{outline.parts.length}</strong>
-                </div>
-                <div className="summary-card">
-                  <span>Events</span>
-                  <strong>{outlineEvents.length}</strong>
-                </div>
-                <div className="summary-card">
-                  <span>Chapters</span>
-                  <strong>{outline.chapters.length}</strong>
-                </div>
-                <div className="summary-card">
-                  <span>Completed parts</span>
-                  <strong>{completedParts}</strong>
-                </div>
-                <div className="summary-card">
-                  <span>Completed events</span>
-                  <strong>{completedEvents}</strong>
-                </div>
-              </div>
-
-              <div className="outline-toolbar">
-                <div className="workspace-subtitle">
-                  Structure the book into parts, track key events, and link each event to none or multiple chapters.
-                </div>
-                <button className="primary-action" onClick={addPart}>
-                  Add Part
-                </button>
-              </div>
-
-              <div className="chapter-library">
-                {outline.chapters.length === 0 ? (
-                  <div className="chapter-library-empty">
-                    No chapters yet. Add one from an event's chapter picker.
-                  </div>
-                ) : (
-                  outline.chapters.map((chapter) => (
-                    <span key={chapter.id} className="chapter-chip">
-                      {chapter.title}
-                    </span>
-                  ))
-                )}
-              </div>
-
-              {outline.parts.length === 0 && (
-                <div className="outline-empty">
-                  No parts yet. Start by adding a part, then add the key events that belong to it.
-                </div>
-              )}
-
-              <div className="outline-parts">
-                {outline.parts.map((part) => (
-                  <section key={part.id} className="outline-part-card">
-                    <div className="outline-part-header">
-                      <input
-                        className="outline-field"
-                        value={part.title}
-                        onChange={(event) => updatePart(part.id, { title: event.target.value })}
-                        placeholder="Part title"
-                      />
-                      <select
-                        className="outline-select"
-                        value={part.status}
-                        onChange={(event) =>
-                          updatePart(part.id, { status: event.target.value as OutlineStatus })
-                        }
-                      >
-                        <option value="todo">To do</option>
-                        <option value="in-progress">In progress</option>
-                        <option value="blocked">Blocked</option>
-                        <option value="done">Done</option>
-                      </select>
-                      <span className="status-pill">{getPartStatus(part)}</span>
-                      <button className="ghost-action" onClick={() => removePart(part.id)}>
-                        Remove Part
-                      </button>
-                    </div>
-
-                    <textarea
-                      className="outline-textarea"
-                      value={part.description}
-                      onChange={(event) =>
-                        updatePart(part.id, { description: event.target.value })
-                      }
-                      placeholder="Describe what this section of the book needs to achieve."
-                    />
-
-                    <div className="outline-events">
-                      {part.events.map((outlineEvent) => {
-                        const linkedChapters = outlineEvent.linkedChapterIds
-                          .map((chapterId) => chapterMap.get(chapterId))
-                          .filter(Boolean) as OutlineChapter[];
-
-                        const linkedChapterText =
-                          linkedChapters.length > 0
-                            ? linkedChapters.map((chapter) => chapter.title).join(', ')
-                            : 'No chapters linked';
-
-                        const chapterDraft = chapterDraftByEventId[outlineEvent.id] ?? '';
-                        const isAddingChapter = addingChapterEventId === outlineEvent.id;
-
-                        return (
-                          <div key={outlineEvent.id} className="outline-event-row">
-                            <div className="outline-event-details">
-                              <input
-                                className="outline-field"
-                                value={outlineEvent.title}
-                                onChange={(event) =>
-                                  updateEvent(part.id, outlineEvent.id, {
-                                    title: event.target.value,
-                                  })
-                                }
-                                placeholder="Event title"
-                              />
-                              <textarea
-                                className="outline-textarea"
-                                value={outlineEvent.description}
-                                onChange={(event) =>
-                                  updateEvent(part.id, outlineEvent.id, {
-                                    description: event.target.value,
-                                  })
-                                }
-                                placeholder="What happens in this event?"
-                              />
-                              <div className="linked-chapter-list">
-                                {linkedChapters.length > 0 ? (
-                                  linkedChapters.map((chapter) => (
-                                    <span key={chapter.id} className="linked-chapter-chip">
-                                      {chapter.title}
-                                    </span>
-                                  ))
-                                ) : (
-                                  <span className="linked-chapter-empty">No chapter links yet.</span>
-                                )}
-                              </div>
-                            </div>
-
-                            <select
-                              className="outline-select"
-                              value={outlineEvent.status}
-                              onChange={(event) =>
-                                updateEvent(part.id, outlineEvent.id, {
-                                  status: event.target.value as OutlineStatus,
-                                })
-                              }
-                            >
-                              <option value="todo">To do</option>
-                              <option value="in-progress">In progress</option>
-                              <option value="blocked">Blocked</option>
-                              <option value="done">Done</option>
-                            </select>
-
-                            <div className="chapter-picker">
-                              <details className="chapter-dropdown">
-                                <summary className="chapter-trigger">
-                                  <span className="chapter-trigger-text">{linkedChapterText}</span>
-                                  <span className="chapter-trigger-add">+</span>
-                                </summary>
-
-                                <div className="chapter-menu">
-                                  {outline.chapters.length === 0 ? (
-                                    <div className="chapter-menu-empty">
-                                      No chapters yet. Add one below.
-                                    </div>
-                                  ) : (
-                                    outline.chapters.map((chapter) => (
-                                      <label key={chapter.id} className="chapter-option">
-                                        <input
-                                          type="checkbox"
-                                          checked={outlineEvent.linkedChapterIds.includes(chapter.id)}
-                                          onChange={() =>
-                                            toggleEventChapter(part.id, outlineEvent.id, chapter.id)
-                                          }
-                                        />
-                                        <span>{chapter.title}</span>
-                                      </label>
-                                    ))
-                                  )}
-
-                                  {isAddingChapter ? (
-                                    <div className="chapter-create">
-                                      <input
-                                        className="outline-field"
-                                        value={chapterDraft}
-                                        onChange={(event) =>
-                                          updateChapterDraft(outlineEvent.id, event.target.value)
-                                        }
-                                        placeholder="New chapter title"
-                                        autoFocus
-                                        onKeyDown={(event) => {
-                                          if (event.key === 'Enter') {
-                                            event.preventDefault();
-                                            createChapterForEvent(part.id, outlineEvent.id, chapterDraft);
-                                          }
-
-                                          if (event.key === 'Escape') {
-                                            event.preventDefault();
-                                            cancelAddingChapter(outlineEvent.id);
-                                          }
-                                        }}
-                                      />
-                                      <button
-                                        className="ghost-action"
-                                        onClick={(clickEvent) => {
-                                          clickEvent.preventDefault();
-                                          clickEvent.stopPropagation();
-                                          createChapterForEvent(part.id, outlineEvent.id, chapterDraft);
-                                        }}
-                                      >
-                                        Create chapter
-                                      </button>
-                                      <button
-                                        className="ghost-action"
-                                        onClick={(clickEvent) => {
-                                          clickEvent.preventDefault();
-                                          clickEvent.stopPropagation();
-                                          cancelAddingChapter(outlineEvent.id);
-                                        }}
-                                      >
-                                        Cancel
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <button
-                                      className="ghost-action"
-                                      onClick={(clickEvent) => {
-                                        clickEvent.preventDefault();
-                                        clickEvent.stopPropagation();
-                                        startAddingChapter(outlineEvent.id);
-                                      }}
-                                    >
-                                      + Add chapter
-                                    </button>
-                                  )}
-                                </div>
-                              </details>
-                            </div>
-
-                            <button
-                              className="ghost-action"
-                              onClick={() => removeEvent(part.id, outlineEvent.id)}
-                            >
-                              Remove Event
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <button className="secondary-action" onClick={() => addEvent(part.id)}>
-                      Add Event
-                    </button>
-                  </section>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {activeView === 'planning' && (
-            <div className="panel planning-panel">
-              <div className="planning-summary">
-                <div className="planning-summary-card">
-                  <div className="planning-summary-label">Total tasks</div>
-                  <div className="planning-summary-value">{outline.tasks.length}</div>
-                </div>
-                <div className="planning-summary-card">
-                  <div className="planning-summary-label">Due in 7 days</div>
-                  <div className="planning-summary-value">{tasksThisWeek}</div>
-                </div>
-                <div className="planning-summary-card">
-                  <div className="planning-summary-label">In progress</div>
-                  <div className="planning-summary-value">{inProgressTasks}</div>
-                </div>
-                <div className="planning-summary-card">
-                  <div className="planning-summary-label">Blocked</div>
-                  <div className="planning-summary-value">{blockedTasks}</div>
-                </div>
-              </div>
-
-              <div className="planning-layout">
-                <section className="planning-calendar-card">
-                  <div className="planning-toolbar">
-                    <div>
-                      <div className="planning-section-title">Task calendar</div>
-                      <div className="planning-copy">
-                        Schedule work visually, then link each task back to the chapter, part, and event it serves.
-                      </div>
-                    </div>
-
-                    <div className="planning-month-controls">
-                      <button
-                        className="ghost-action"
-                        onClick={() =>
-                          setDisplayMonth(
-                            (current) => new Date(current.getFullYear(), current.getMonth() - 1, 1)
-                          )
-                        }
-                      >
-                        Previous
-                      </button>
-                      <div className="planning-month-label">{monthLabelFormatter.format(displayMonth)}</div>
-                      <button
-                        className="ghost-action"
-                        onClick={() =>
-                          setDisplayMonth(
-                            (current) => new Date(current.getFullYear(), current.getMonth() + 1, 1)
-                          )
-                        }
-                      >
-                        Next
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="planning-calendar-scroll">
-                    <div className="planning-weekdays">
-                      {Array.from({ length: 7 }, (_, index) => {
-                        const day = addDays(new Date(2026, 0, 4), index);
-                        return (
-                          <div key={day.toISOString()} className="planning-weekday">
-                            {dayLabelFormatter.format(day)}
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div className="planning-calendar-grid">
-                      {calendarDays.map((calendarDay) => {
-                        const dateKey = formatDateInputValue(calendarDay);
-                        const dayTasks = tasksByDate.get(dateKey) ?? [];
-                        const isToday = isSameDay(calendarDay, new Date());
-                        const isSelected = selectedPlanningDate === dateKey;
-                        const fullDateLabel = fullDateFormatter.format(calendarDay);
-                        const dayBadge = isToday
-                          ? 'Today'
-                          : calendarDay.getDate() === 1
-                            ? shortMonthFormatter.format(calendarDay)
-                            : null;
-
-                        return (
-                          <div
-                            key={dateKey}
-                            className={`calendar-day ${
-                              isSameMonth(calendarDay, displayMonth) ? '' : 'is-outside-month'
-                            } ${isSelected ? 'is-selected' : ''} ${isToday ? 'is-today' : ''}`}
-                          >
-                            <button
-                              className="calendar-day-header"
-                              onClick={() => {
-                                setSelectedPlanningDate(dateKey);
-                                setSelectedTaskId(null);
-                              }}
-                            >
-                              <span className="calendar-day-topline">
-                                <span className="calendar-day-number">{calendarDay.getDate()}</span>
-                                {dayBadge ? <span className="calendar-day-badge">{dayBadge}</span> : null}
-                              </span>
-                              <span className="calendar-day-label">{fullDateLabel}</span>
-                            </button>
-
-                            <div className="calendar-day-tasks">
-                              {dayTasks.map((task) => (
-                                <button
-                                  key={task.id}
-                                  className={`task-block status-${task.status} ${
-                                    selectedTaskId === task.id ? 'active' : ''
-                                  }`}
-                                  onClick={() => {
-                                    setSelectedTaskId(task.id);
-                                    setSelectedPlanningDate(task.date);
-                                  }}
-                                >
-                                  <div className="task-block-copy">
-                                    <span className="task-block-title">{task.title}</span>
-                                    <span className="task-block-meta">
-                                      {statusLabel[task.status]} · {task.comments.length} comment
-                                      {task.comments.length === 1 ? '' : 's'}
-                                    </span>
-                                  </div>
-                                  <div className="task-block-tags">
-                                    {getTaskLinkBadges(task)
-                                      .slice(0, 2)
-                                      .map((badge) => (
-                                        <span key={badge.key} className={`task-block-tag kind-${badge.kind}`}>
-                                          {badge.label}
-                                        </span>
-                                      ))}
-                                  </div>
-                                </button>
-                              ))}
-                            </div>
-
-                            <button
-                              className="calendar-add-task"
-                              aria-label={`Add task for ${fullDateLabel}`}
-                              onClick={() => addTask(dateKey)}
-                            >
-                              + Task
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </section>
-
-                <aside className="planning-inspector">
-                  <div className="planning-inspector-header">
-                    <div>
-                      <div className="planning-section-title">Planner</div>
-                      <div className="planning-copy">
-                        {selectedTask
-                          ? 'Refine the selected task, connect it to story structure, and capture comments.'
-                          : `Select a task or create one for ${fullDateFormatter.format(
-                              parseDateInputValue(selectedPlanningDate)
-                            )}.`}
-                      </div>
-                    </div>
-
-                    {!selectedTask ? (
-                      <button className="primary-action" onClick={() => addTask(selectedPlanningDate)}>
-                        New Task
-                      </button>
-                    ) : null}
-                  </div>
-
-                  {selectedTask ? (
-                    <div className="planning-form">
-                      <div className="planning-form-header">
-                        <div className="planning-section-title">Task details</div>
-                        <button className="ghost-action" onClick={() => removeTask(selectedTask.id)}>
-                          Delete Task
-                        </button>
-                      </div>
-
-                      <input
-                        className="outline-field"
-                        value={selectedTask.title}
-                        onChange={(event) => updateTask(selectedTask.id, { title: event.target.value })}
-                        placeholder="Task title"
-                      />
-
-                      <div className="planning-form-row">
-                        <input
-                          className="outline-field"
-                          type="date"
-                          value={selectedTask.date}
-                          onChange={(event) => updateTask(selectedTask.id, { date: event.target.value })}
-                        />
-                        <select
-                          className="outline-select"
-                          value={selectedTask.status}
-                          onChange={(event) =>
-                            updateTask(selectedTask.id, {
-                              status: event.target.value as OutlineStatus,
-                            })
-                          }
-                        >
-                          <option value="todo">To do</option>
-                          <option value="in-progress">In progress</option>
-                          <option value="blocked">Blocked</option>
-                          <option value="done">Done</option>
-                        </select>
-                      </div>
-
-                      <textarea
-                        className="outline-textarea"
-                        value={selectedTask.description}
-                        onChange={(event) =>
-                          updateTask(selectedTask.id, { description: event.target.value })
-                        }
-                        placeholder="Describe the writing work or revision goal."
-                      />
-
-                      <div className="planning-section">
-                        <div className="planning-section-title">Story links</div>
-                        <div className="planning-link-list">
-                          <div className="planning-link-group">
-                            <div className="planning-helper">Chapters</div>
-                            {outline.chapters.length > 0 ? (
-                              <div className="planning-link-options">
-                                {outline.chapters.map((chapter) => {
-                                  const isLinked = selectedTask.linkedChapterIds.includes(chapter.id);
-
-                                  return (
-                                    <button
-                                      key={chapter.id}
-                                      type="button"
-                                      className={`planning-link-option ${isLinked ? 'is-linked' : ''}`}
-                                      onClick={() =>
-                                        toggleTaskLink(selectedTask.id, 'linkedChapterIds', chapter.id)
-                                      }
-                                    >
-                                      <span className="planning-link-option-copy">
-                                        <span className="planning-link-option-title">{chapter.title}</span>
-                                        <span className="planning-link-option-subtitle">Chapter</span>
-                                      </span>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            ) : (
-                              <div className="planning-link-empty">No chapters available yet.</div>
-                            )}
-                          </div>
-
-                          <div className="planning-link-group">
-                            <div className="planning-helper">Parts</div>
-                            {outline.parts.length > 0 ? (
-                              <div className="planning-link-options">
-                                {outline.parts.map((part) => {
-                                  const isLinked = selectedTask.linkedPartIds.includes(part.id);
-
-                                  return (
-                                    <button
-                                      key={part.id}
-                                      type="button"
-                                      className={`planning-link-option ${isLinked ? 'is-linked' : ''}`}
-                                      onClick={() =>
-                                        toggleTaskLink(selectedTask.id, 'linkedPartIds', part.id)
-                                      }
-                                    >
-                                      <span className="planning-link-option-copy">
-                                        <span className="planning-link-option-title">{part.title}</span>
-                                        <span className="planning-link-option-subtitle">Part</span>
-                                      </span>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            ) : (
-                              <div className="planning-link-empty">No parts available yet.</div>
-                            )}
-                          </div>
-
-                          <div className="planning-link-group">
-                            <div className="planning-helper">Events</div>
-                            {outlineEvents.length > 0 ? (
-                              <div className="planning-link-options">
-                                {outlineEvents.map((outlineEvent) => {
-                                  const isLinked = selectedTask.linkedEventIds.includes(outlineEvent.id);
-                                  const eventContext = eventContextMap.get(outlineEvent.id);
-
-                                  return (
-                                    <button
-                                      key={outlineEvent.id}
-                                      type="button"
-                                      className={`planning-link-option ${isLinked ? 'is-linked' : ''}`}
-                                      onClick={() =>
-                                        toggleTaskLink(selectedTask.id, 'linkedEventIds', outlineEvent.id)
-                                      }
-                                    >
-                                      <span className="planning-link-option-copy">
-                                        <span className="planning-link-option-title">{outlineEvent.title}</span>
-                                        <span className="planning-link-option-subtitle">
-                                          {eventContext ? eventContext.partTitle : 'Event'}
-                                        </span>
-                                      </span>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            ) : (
-                              <div className="planning-link-empty">No events available yet.</div>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="planned-task-tag-list">
-                          {getTaskLinkBadges(selectedTask).length > 0 ? (
-                            getTaskLinkBadges(selectedTask).map((badge) => (
-                              <span key={badge.key} className={`planning-link-chip kind-${badge.kind}`}>
-                                {badge.label}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="planning-link-empty">
-                              This task is not linked yet. Connect it to the story structure above.
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="planning-section">
-                        <div className="planning-section-title">Comments</div>
-                        {selectedTask.comments.length > 0 ? (
-                          <div className="task-comment-list">
-                            {selectedTask.comments.map((comment) => (
-                              <div key={comment.id} className="task-comment-item">
-                                <div className="comment-header">
-                                  <span className="comment-title">Note</span>
-                                  <span className="comment-meta">
-                                    {new Date(comment.createdAt).toLocaleString()}
-                                  </span>
-                                </div>
-                                <div className="comment-body">{comment.body}</div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="planning-empty">No comments yet.</div>
-                        )}
-
-                        <div className="task-comment-composer">
-                          <textarea
-                            className="outline-textarea"
-                            placeholder="Add a comment about this task"
-                            value={taskCommentDraft}
-                            onChange={(event) => setTaskCommentDraft(event.target.value)}
-                          />
-                          <button
-                            className="secondary-action"
-                            onClick={() => addTaskComment(selectedTask.id, taskCommentDraft)}
-                          >
-                            Add Comment
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="planning-empty">
-                      Create a task for the selected date, or pick a task block from the calendar to edit it.
-                    </div>
-                  )}
-                </aside>
-              </div>
-            </div>
-          )}
-          {activeView === 'settings' && <div className="panel">Settings view (placeholder)</div>}
         </main>
       </div>
     </Layout>
   );
 };
 
+type EditorViewProps = {
+  pages: Page[];
+  activePage?: Page;
+  activePageId: string;
+  outline: OutlineBundle;
+  chapterMap: Map<string, OutlineChapter>;
+  chapterUsageMap: Map<string, ChapterUsageContext[]>;
+  currentPlannedTask: PlanningTask | null;
+  relevantPlanningTasks: PlanningTask[];
+  onSelectPage: (pageId: string) => void;
+  onTogglePageChapter: (pageId: string, chapterId: string) => void;
+  onOpenTaskInPlanning: (task: PlanningTask) => void;
+  onUpdateActivePage: (content: string) => void;
+  getTaskLinkBadges: (task: PlanningTask) => Array<{
+    key: string;
+    label: string;
+    kind: string;
+  }>;
+};
+
+const EditorView: React.FC<EditorViewProps> = ({
+  pages,
+  activePage,
+  activePageId,
+  outline,
+  chapterMap,
+  chapterUsageMap,
+  currentPlannedTask,
+  relevantPlanningTasks,
+  onSelectPage,
+  onTogglePageChapter,
+  onOpenTaskInPlanning,
+  onUpdateActivePage,
+  getTaskLinkBadges,
+}) => (
+  <div className="panel">
+    <div className="page-list">
+      {pages.map((page) => (
+        <button
+          key={page.id}
+          className={`page-pill ${page.id === activePageId ? 'active' : ''}`}
+          onClick={() => onSelectPage(page.id)}
+        >
+          <span className="page-pill-title">{page.title}</span>
+          {page.linkedChapterIds.length > 0 ? (
+            <span className="page-pill-tags">
+              {page.linkedChapterIds
+                .map((chapterId) => chapterMap.get(chapterId))
+                .filter(Boolean)
+                .slice(0, 1)
+                .map((chapter) => (
+                  <span key={chapter!.id} className="page-pill-tag">
+                    {chapter!.title}
+                  </span>
+                ))}
+              {page.linkedChapterIds.length > 1 ? (
+                <span className="page-pill-tag">+{page.linkedChapterIds.length - 1}</span>
+              ) : null}
+            </span>
+          ) : null}
+        </button>
+      ))}
+    </div>
+
+    {activePage ? (
+      <div className="page-link-panel">
+        <div className="page-link-label">Page chapter tags</div>
+
+        {outline.chapters.length === 0 ? (
+          <div className="page-link-empty">
+            No chapters exist yet. Add chapters in the outline view first.
+          </div>
+        ) : (
+          <details className="page-link-dropdown">
+            <summary className="page-link-trigger">
+              <div className="page-link-trigger-copy">
+                <span className="page-link-trigger-title">Chapter tags</span>
+                <span className="page-link-trigger-subtitle">
+                  {activePage.linkedChapterIds.length > 0
+                    ? `${activePage.linkedChapterIds.length} linked`
+                    : 'No chapter tags selected'}
+                </span>
+              </div>
+
+              <div className="page-link-trigger-meta">
+                {activePage.linkedChapterIds
+                  .map((chapterId) => chapterMap.get(chapterId))
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .map((chapter) => (
+                    <span key={chapter!.id} className="page-link-trigger-tag">
+                      {chapter!.title}
+                    </span>
+                  ))}
+                {activePage.linkedChapterIds.length > 2 ? (
+                  <span className="page-link-trigger-count">
+                    +{activePage.linkedChapterIds.length - 2}
+                  </span>
+                ) : null}
+                <span className="page-link-caret">▾</span>
+              </div>
+            </summary>
+
+            <div className="page-link-menu">
+              <div className="page-link-options">
+                {outline.chapters.map((chapter) => {
+                  const contexts = chapterUsageMap.get(chapter.id) ?? [];
+                  const isLinked = activePage.linkedChapterIds.includes(chapter.id);
+
+                  return (
+                    <label
+                      key={chapter.id}
+                      className={`page-link-option ${isLinked ? 'is-linked' : ''}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isLinked}
+                        onChange={() => onTogglePageChapter(activePage.id, chapter.id)}
+                      />
+                      <div className="page-link-copy">
+                        <span className="page-link-title">{chapter.title}</span>
+                        {contexts.length > 0 ? (
+                          <div className="page-link-contexts">
+                            {contexts.map((context) => (
+                              <React.Fragment key={`${context.partId}:${context.eventId}`}>
+                                <span className="page-meta-tag part-tag">{context.partTitle}</span>
+                                <span className="page-meta-tag">{context.eventTitle}</span>
+                              </React.Fragment>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="page-link-empty-context">
+                            This chapter is not linked to an event yet.
+                          </span>
+                        )}
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          </details>
+        )}
+
+        {activePage.linkedChapterIds.length > 0 ? (
+          <div className="page-linked-chapters">
+            {activePage.linkedChapterIds
+              .map((chapterId) => chapterMap.get(chapterId))
+              .filter(Boolean)
+              .map((chapter) => (
+                <span key={chapter!.id} className="page-linked-chapter-tag">
+                  {chapter!.title}
+                </span>
+              ))}
+          </div>
+        ) : null}
+
+        <div className="planned-task-panel">
+          <div className="page-link-label">Current plan</div>
+          {currentPlannedTask ? (
+            <div className="planned-task-card">
+              <div className="planned-task-card-header">
+                <div>
+                  <div className="planned-task-title">{currentPlannedTask.title}</div>
+                  <div className="planned-task-subtitle">
+                    {fullDateFormatter.format(parseDateInputValue(currentPlannedTask.date))} ·{' '}
+                    {statusLabel[currentPlannedTask.status]}
+                  </div>
+                </div>
+
+                <button
+                  className="ghost-action"
+                  onClick={() => onOpenTaskInPlanning(currentPlannedTask)}
+                >
+                  Open in Planning
+                </button>
+              </div>
+
+              {currentPlannedTask.description ? (
+                <div className="planned-task-description">{currentPlannedTask.description}</div>
+              ) : null}
+
+              <div className="planned-task-tags">
+                <div className="planned-task-tag-list">
+                  <span className={`task-status-badge status-${currentPlannedTask.status}`}>
+                    {statusLabel[currentPlannedTask.status]}
+                  </span>
+                  <span className="planning-count-pill">
+                    {currentPlannedTask.comments.length} comment
+                    {currentPlannedTask.comments.length === 1 ? '' : 's'}
+                  </span>
+                  {getTaskLinkBadges(currentPlannedTask).map((badge) => (
+                    <span key={badge.key} className={`planned-task-tag kind-${badge.kind}`}>
+                      {badge.label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {relevantPlanningTasks.length > 1 ? (
+                <div className="planned-task-queue">
+                  {relevantPlanningTasks
+                    .filter((task) => task.id !== currentPlannedTask.id)
+                    .slice(0, 3)
+                    .map((task) => (
+                      <button
+                        key={task.id}
+                        className="planned-task-queue-item"
+                        onClick={() => onOpenTaskInPlanning(task)}
+                      >
+                        <span className="planned-task-queue-header">
+                          <span className="queue-task-title">{task.title}</span>
+                          <span className="queue-task-date">
+                            {fullDateFormatter.format(parseDateInputValue(task.date))}
+                          </span>
+                        </span>
+                        <span className="planned-task-subtitle">
+                          {statusLabel[task.status]}
+                        </span>
+                      </button>
+                    ))}
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <div className="planned-task-empty">
+              {activePage.linkedChapterIds.length > 0
+                ? 'No planned tasks are linked to this page yet. Add them from Planning.'
+                : 'Link this page to a chapter to surface tasks tied to its chapters, parts, and events.'}
+            </div>
+          )}
+        </div>
+      </div>
+    ) : null}
+
+    <ReactQuill
+      key={activePageId}
+      value={activePage?.content ?? ''}
+      onChange={onUpdateActivePage}
+      className="editor"
+      placeholder="Start writing this page..."
+    />
+  </div>
+);
+
+type OutlineViewProps = {
+  outline: OutlineBundle;
+  outlineEvents: OutlineEvent[];
+  completedParts: number;
+  completedEvents: number;
+  chapterMap: Map<string, OutlineChapter>;
+  chapterDraftByEventId: Record<string, string>;
+  addingChapterEventId: string | null;
+  onAddPart: () => void;
+  onUpdatePart: (partId: string, updates: Partial<OutlinePart>) => void;
+  onRemovePart: (partId: string) => void;
+  onAddEvent: (partId: string) => void;
+  onUpdateEvent: (
+    partId: string,
+    eventId: string,
+    updates: Partial<OutlineEvent>
+  ) => void;
+  onRemoveEvent: (partId: string, eventId: string) => void;
+  onToggleEventChapter: (partId: string, eventId: string, chapterId: string) => void;
+  onUpdateChapterDraft: (eventId: string, value: string) => void;
+  onStartAddingChapter: (eventId: string) => void;
+  onCancelAddingChapter: (eventId: string) => void;
+  onCreateChapterForEvent: (partId: string, eventId: string, rawTitle: string) => void;
+};
+
+const OutlineView: React.FC<OutlineViewProps> = ({
+  outline,
+  outlineEvents,
+  completedParts,
+  completedEvents,
+  chapterMap,
+  chapterDraftByEventId,
+  addingChapterEventId,
+  onAddPart,
+  onUpdatePart,
+  onRemovePart,
+  onAddEvent,
+  onUpdateEvent,
+  onRemoveEvent,
+  onToggleEventChapter,
+  onUpdateChapterDraft,
+  onStartAddingChapter,
+  onCancelAddingChapter,
+  onCreateChapterForEvent,
+}) => (
+  <div className="panel outline-panel">
+    <div className="outline-summary">
+      <div className="summary-card">
+        <span>Parts</span>
+        <strong>{outline.parts.length}</strong>
+      </div>
+      <div className="summary-card">
+        <span>Events</span>
+        <strong>{outlineEvents.length}</strong>
+      </div>
+      <div className="summary-card">
+        <span>Chapters</span>
+        <strong>{outline.chapters.length}</strong>
+      </div>
+      <div className="summary-card">
+        <span>Completed parts</span>
+        <strong>{completedParts}</strong>
+      </div>
+      <div className="summary-card">
+        <span>Completed events</span>
+        <strong>{completedEvents}</strong>
+      </div>
+    </div>
+
+    <div className="outline-toolbar">
+      <div className="workspace-subtitle">
+        Structure the book into parts, track key events, and link each event to none or multiple chapters.
+      </div>
+      <button className="primary-action" onClick={onAddPart}>
+        Add Part
+      </button>
+    </div>
+
+    <div className="chapter-library">
+      {outline.chapters.length === 0 ? (
+        <div className="chapter-library-empty">
+          No chapters yet. Add one from an event&apos;s chapter picker.
+        </div>
+      ) : (
+        outline.chapters.map((chapter) => (
+          <span key={chapter.id} className="chapter-chip">
+            {chapter.title}
+          </span>
+        ))
+      )}
+    </div>
+
+    {outline.parts.length === 0 && (
+      <div className="outline-empty">
+        No parts yet. Start by adding a part, then add the key events that belong to it.
+      </div>
+    )}
+
+    <div className="outline-parts">
+      {outline.parts.map((part) => (
+        <section key={part.id} className="outline-part-card">
+          <div className="outline-part-header">
+            <input
+              className="outline-field"
+              value={part.title}
+              onChange={(event) => onUpdatePart(part.id, { title: event.target.value })}
+              placeholder="Part title"
+            />
+            <select
+              className="outline-select"
+              value={part.status}
+              onChange={(event) =>
+                onUpdatePart(part.id, { status: event.target.value as OutlineStatus })
+              }
+            >
+              <option value="todo">To do</option>
+              <option value="in-progress">In progress</option>
+              <option value="blocked">Blocked</option>
+              <option value="done">Done</option>
+            </select>
+            <span className="status-pill">{getPartStatus(part)}</span>
+            <button className="ghost-action" onClick={() => onRemovePart(part.id)}>
+              Remove Part
+            </button>
+          </div>
+
+          <textarea
+            className="outline-textarea"
+            value={part.description}
+            onChange={(event) => onUpdatePart(part.id, { description: event.target.value })}
+            placeholder="Describe what this section of the book needs to achieve."
+          />
+
+          <div className="outline-events">
+            {part.events.map((outlineEvent) => {
+              const linkedChapters = outlineEvent.linkedChapterIds
+                .map((chapterId) => chapterMap.get(chapterId))
+                .filter(Boolean) as OutlineChapter[];
+
+              const linkedChapterText =
+                linkedChapters.length > 0
+                  ? linkedChapters.map((chapter) => chapter.title).join(', ')
+                  : 'No chapters linked';
+
+              const chapterDraft = chapterDraftByEventId[outlineEvent.id] ?? '';
+              const isAddingChapter = addingChapterEventId === outlineEvent.id;
+
+              return (
+                <div key={outlineEvent.id} className="outline-event-row">
+                  <div className="outline-event-details">
+                    <input
+                      className="outline-field"
+                      value={outlineEvent.title}
+                      onChange={(event) =>
+                        onUpdateEvent(part.id, outlineEvent.id, {
+                          title: event.target.value,
+                        })
+                      }
+                      placeholder="Event title"
+                    />
+                    <textarea
+                      className="outline-textarea"
+                      value={outlineEvent.description}
+                      onChange={(event) =>
+                        onUpdateEvent(part.id, outlineEvent.id, {
+                          description: event.target.value,
+                        })
+                      }
+                      placeholder="What happens in this event?"
+                    />
+                    <div className="linked-chapter-list">
+                      {linkedChapters.length > 0 ? (
+                        linkedChapters.map((chapter) => (
+                          <span key={chapter.id} className="linked-chapter-chip">
+                            {chapter.title}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="linked-chapter-empty">No chapter links yet.</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <select
+                    className="outline-select"
+                    value={outlineEvent.status}
+                    onChange={(event) =>
+                      onUpdateEvent(part.id, outlineEvent.id, {
+                        status: event.target.value as OutlineStatus,
+                      })
+                    }
+                  >
+                    <option value="todo">To do</option>
+                    <option value="in-progress">In progress</option>
+                    <option value="blocked">Blocked</option>
+                    <option value="done">Done</option>
+                  </select>
+
+                  <div className="chapter-picker">
+                    <details className="chapter-dropdown">
+                      <summary className="chapter-trigger">
+                        <span className="chapter-trigger-text">{linkedChapterText}</span>
+                        <span className="chapter-trigger-add">+</span>
+                      </summary>
+
+                      <div className="chapter-menu">
+                        {outline.chapters.length === 0 ? (
+                          <div className="chapter-menu-empty">
+                            No chapters yet. Add one below.
+                          </div>
+                        ) : (
+                          outline.chapters.map((chapter) => (
+                            <label key={chapter.id} className="chapter-option">
+                              <input
+                                type="checkbox"
+                                checked={outlineEvent.linkedChapterIds.includes(chapter.id)}
+                                onChange={() =>
+                                  onToggleEventChapter(part.id, outlineEvent.id, chapter.id)
+                                }
+                              />
+                              <span>{chapter.title}</span>
+                            </label>
+                          ))
+                        )}
+
+                        {isAddingChapter ? (
+                          <div className="chapter-create">
+                            <input
+                              className="outline-field"
+                              value={chapterDraft}
+                              onChange={(event) =>
+                                onUpdateChapterDraft(outlineEvent.id, event.target.value)
+                              }
+                              placeholder="New chapter title"
+                              autoFocus
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter') {
+                                  event.preventDefault();
+                                  onCreateChapterForEvent(part.id, outlineEvent.id, chapterDraft);
+                                }
+
+                                if (event.key === 'Escape') {
+                                  event.preventDefault();
+                                  onCancelAddingChapter(outlineEvent.id);
+                                }
+                              }}
+                            />
+                            <button
+                              className="ghost-action"
+                              onClick={(clickEvent) => {
+                                clickEvent.preventDefault();
+                                clickEvent.stopPropagation();
+                                onCreateChapterForEvent(part.id, outlineEvent.id, chapterDraft);
+                              }}
+                            >
+                              Create chapter
+                            </button>
+                            <button
+                              className="ghost-action"
+                              onClick={(clickEvent) => {
+                                clickEvent.preventDefault();
+                                clickEvent.stopPropagation();
+                                onCancelAddingChapter(outlineEvent.id);
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            className="ghost-action"
+                            onClick={(clickEvent) => {
+                              clickEvent.preventDefault();
+                              clickEvent.stopPropagation();
+                              onStartAddingChapter(outlineEvent.id);
+                            }}
+                          >
+                            + Add chapter
+                          </button>
+                        )}
+                      </div>
+                    </details>
+                  </div>
+
+                  <button
+                    className="ghost-action"
+                    onClick={() => onRemoveEvent(part.id, outlineEvent.id)}
+                  >
+                    Remove Event
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          <button className="secondary-action" onClick={() => onAddEvent(part.id)}>
+            Add Event
+          </button>
+        </section>
+      ))}
+    </div>
+  </div>
+);
+
+type PlanningViewProps = {
+  outline: OutlineBundle;
+  outlineEvents: OutlineEvent[];
+  tasksByDate: Map<string, PlanningTask[]>;
+  calendarDays: Date[];
+  displayMonth: Date;
+  selectedPlanningDate: string;
+  selectedTask: PlanningTask | null;
+  selectedTaskId: string | null;
+  taskCommentDraft: string;
+  tasksThisWeek: number;
+  inProgressTasks: number;
+  blockedTasks: number;
+  eventContextMap: Map<string, ChapterUsageContext>;
+  onSetDisplayMonth: React.Dispatch<React.SetStateAction<Date>>;
+  onSetSelectedPlanningDate: React.Dispatch<React.SetStateAction<string>>;
+  onSetSelectedTaskId: React.Dispatch<React.SetStateAction<string | null>>;
+  onSetTaskCommentDraft: React.Dispatch<React.SetStateAction<string>>;
+  onAddTask: (date?: string) => void;
+  onUpdateTask: (taskId: string, updates: Partial<PlanningTask>) => void;
+  onRemoveTask: (taskId: string) => void;
+  onToggleTaskLink: (
+    taskId: string,
+    linkKey: 'linkedChapterIds' | 'linkedPartIds' | 'linkedEventIds',
+    linkedId: string
+  ) => void;
+  onAddTaskComment: (taskId: string, rawBody: string) => void;
+  getTaskLinkBadges: (task: PlanningTask) => Array<{
+    key: string;
+    label: string;
+    kind: string;
+  }>;
+};
+
+const PlanningView: React.FC<PlanningViewProps> = ({
+  outline,
+  outlineEvents,
+  tasksByDate,
+  calendarDays,
+  displayMonth,
+  selectedPlanningDate,
+  selectedTask,
+  selectedTaskId,
+  taskCommentDraft,
+  tasksThisWeek,
+  inProgressTasks,
+  blockedTasks,
+  eventContextMap,
+  onSetDisplayMonth,
+  onSetSelectedPlanningDate,
+  onSetSelectedTaskId,
+  onSetTaskCommentDraft,
+  onAddTask,
+  onUpdateTask,
+  onRemoveTask,
+  onToggleTaskLink,
+  onAddTaskComment,
+  getTaskLinkBadges,
+}) => (
+  <div className="panel planning-panel">
+    <div className="planning-summary">
+      <div className="planning-summary-card">
+        <div className="planning-summary-label">Total tasks</div>
+        <div className="planning-summary-value">{outline.tasks.length}</div>
+      </div>
+      <div className="planning-summary-card">
+        <div className="planning-summary-label">Due in 7 days</div>
+        <div className="planning-summary-value">{tasksThisWeek}</div>
+      </div>
+      <div className="planning-summary-card">
+        <div className="planning-summary-label">In progress</div>
+        <div className="planning-summary-value">{inProgressTasks}</div>
+      </div>
+      <div className="planning-summary-card">
+        <div className="planning-summary-label">Blocked</div>
+        <div className="planning-summary-value">{blockedTasks}</div>
+      </div>
+    </div>
+
+    <div className="planning-layout">
+      <section className="planning-calendar-card">
+        <div className="planning-toolbar">
+          <div>
+            <div className="planning-section-title">Task calendar</div>
+            <div className="planning-copy">
+              Schedule work visually, then link each task back to the chapter, part, and event it serves.
+            </div>
+          </div>
+
+          <div className="planning-month-controls">
+            <button
+              className="ghost-action"
+              onClick={() =>
+                onSetDisplayMonth(
+                  (current) => new Date(current.getFullYear(), current.getMonth() - 1, 1)
+                )
+              }
+            >
+              Previous
+            </button>
+            <div className="planning-month-label">{monthLabelFormatter.format(displayMonth)}</div>
+            <button
+              className="ghost-action"
+              onClick={() =>
+                onSetDisplayMonth(
+                  (current) => new Date(current.getFullYear(), current.getMonth() + 1, 1)
+                )
+              }
+            >
+              Next
+            </button>
+          </div>
+        </div>
+
+        <div className="planning-calendar-scroll">
+          <div className="planning-weekdays">
+            {Array.from({ length: 7 }, (_, index) => {
+              const day = addDays(new Date(2026, 0, 4), index);
+              return (
+                <div key={day.toISOString()} className="planning-weekday">
+                  {dayLabelFormatter.format(day)}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="planning-calendar-grid">
+            {calendarDays.map((calendarDay) => {
+              const dateKey = formatDateInputValue(calendarDay);
+              const dayTasks = tasksByDate.get(dateKey) ?? [];
+              const isToday = isSameDay(calendarDay, new Date());
+              const isSelected = selectedPlanningDate === dateKey;
+              const fullDateLabel = fullDateFormatter.format(calendarDay);
+
+              let dayBadge: string | null = null;
+              if (isToday) {
+                dayBadge = 'Today';
+              } else if (calendarDay.getDate() === 1) {
+                dayBadge = shortMonthFormatter.format(calendarDay);
+              }
+
+              return (
+                <div
+                  key={dateKey}
+                  className={`calendar-day ${
+                    isSameMonth(calendarDay, displayMonth) ? '' : 'is-outside-month'
+                  } ${isSelected ? 'is-selected' : ''} ${isToday ? 'is-today' : ''}`}
+                >
+                  <button
+                    className="calendar-day-header"
+                    onClick={() => {
+                      onSetSelectedPlanningDate(dateKey);
+                      onSetSelectedTaskId(null);
+                    }}
+                  >
+                    <span className="calendar-day-topline">
+                      <span className="calendar-day-number">{calendarDay.getDate()}</span>
+                      {dayBadge ? <span className="calendar-day-badge">{dayBadge}</span> : null}
+                    </span>
+                    <span className="calendar-day-label">{fullDateLabel}</span>
+                  </button>
+
+                  <div className="calendar-day-tasks">
+                    {dayTasks.map((task) => (
+                      <button
+                        key={task.id}
+                        className={`task-block status-${task.status} ${
+                          selectedTaskId === task.id ? 'active' : ''
+                        }`}
+                        onClick={() => {
+                          onSetSelectedTaskId(task.id);
+                          onSetSelectedPlanningDate(task.date);
+                        }}
+                      >
+                        <div className="task-block-copy">
+                          <span className="task-block-title">{task.title}</span>
+                          <span className="task-block-meta">
+                            {statusLabel[task.status]} · {task.comments.length} comment
+                            {task.comments.length === 1 ? '' : 's'}
+                          </span>
+                        </div>
+                        <div className="task-block-tags">
+                          {getTaskLinkBadges(task)
+                            .slice(0, 2)
+                            .map((badge) => (
+                              <span key={badge.key} className={`task-block-tag kind-${badge.kind}`}>
+                                {badge.label}
+                              </span>
+                            ))}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    className="calendar-add-task"
+                    aria-label={`Add task for ${fullDateLabel}`}
+                    onClick={() => onAddTask(dateKey)}
+                  >
+                    + Task
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <aside className="planning-inspector">
+        <div className="planning-inspector-header">
+          <div>
+            <div className="planning-section-title">Planner</div>
+            <div className="planning-copy">
+              {selectedTask
+                ? 'Refine the selected task, connect it to story structure, and capture comments.'
+                : `Select a task or create one for ${fullDateFormatter.format(
+                    parseDateInputValue(selectedPlanningDate)
+                  )}.`}
+            </div>
+          </div>
+
+          {selectedTask ? null : (
+            <button className="primary-action" onClick={() => onAddTask(selectedPlanningDate)}>
+              New Task
+            </button>
+          )}
+        </div>
+
+        {selectedTask ? (
+          <div className="planning-form">
+            <div className="planning-form-header">
+              <div className="planning-section-title">Task details</div>
+              <button className="ghost-action" onClick={() => onRemoveTask(selectedTask.id)}>
+                Delete Task
+              </button>
+            </div>
+
+            <input
+              className="outline-field"
+              value={selectedTask.title}
+              onChange={(event) => onUpdateTask(selectedTask.id, { title: event.target.value })}
+              placeholder="Task title"
+            />
+
+            <div className="planning-form-row">
+              <input
+                className="outline-field"
+                type="date"
+                value={selectedTask.date}
+                onChange={(event) => onUpdateTask(selectedTask.id, { date: event.target.value })}
+              />
+              <select
+                className="outline-select"
+                value={selectedTask.status}
+                onChange={(event) =>
+                  onUpdateTask(selectedTask.id, {
+                    status: event.target.value as OutlineStatus,
+                  })
+                }
+              >
+                <option value="todo">To do</option>
+                <option value="in-progress">In progress</option>
+                <option value="blocked">Blocked</option>
+                <option value="done">Done</option>
+              </select>
+            </div>
+
+            <textarea
+              className="outline-textarea"
+              value={selectedTask.description}
+              onChange={(event) =>
+                onUpdateTask(selectedTask.id, { description: event.target.value })
+              }
+              placeholder="Describe the writing work or revision goal."
+            />
+
+            <div className="planning-section">
+              <div className="planning-section-title">Story links</div>
+              <div className="planning-link-list">
+                <div className="planning-link-group">
+                  <div className="planning-helper">Chapters</div>
+                  {outline.chapters.length > 0 ? (
+                    <div className="planning-link-options">
+                      {outline.chapters.map((chapter) => {
+                        const isLinked = selectedTask.linkedChapterIds.includes(chapter.id);
+
+                        return (
+                          <button
+                            key={chapter.id}
+                            type="button"
+                            className={`planning-link-option ${isLinked ? 'is-linked' : ''}`}
+                            onClick={() =>
+                              onToggleTaskLink(selectedTask.id, 'linkedChapterIds', chapter.id)
+                            }
+                          >
+                            <span className="planning-link-option-copy">
+                              <span className="planning-link-option-title">{chapter.title}</span>
+                              <span className="planning-link-option-subtitle">Chapter</span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="planning-link-empty">No chapters available yet.</div>
+                  )}
+                </div>
+
+                <div className="planning-link-group">
+                  <div className="planning-helper">Parts</div>
+                  {outline.parts.length > 0 ? (
+                    <div className="planning-link-options">
+                      {outline.parts.map((part) => {
+                        const isLinked = selectedTask.linkedPartIds.includes(part.id);
+
+                        return (
+                          <button
+                            key={part.id}
+                            type="button"
+                            className={`planning-link-option ${isLinked ? 'is-linked' : ''}`}
+                            onClick={() =>
+                              onToggleTaskLink(selectedTask.id, 'linkedPartIds', part.id)
+                            }
+                          >
+                            <span className="planning-link-option-copy">
+                              <span className="planning-link-option-title">{part.title}</span>
+                              <span className="planning-link-option-subtitle">Part</span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="planning-link-empty">No parts available yet.</div>
+                  )}
+                </div>
+
+                <div className="planning-link-group">
+                  <div className="planning-helper">Events</div>
+                  {outlineEvents.length > 0 ? (
+                    <div className="planning-link-options">
+                      {outlineEvents.map((outlineEvent) => {
+                        const isLinked = selectedTask.linkedEventIds.includes(outlineEvent.id);
+                        const eventContext = eventContextMap.get(outlineEvent.id);
+
+                        return (
+                          <button
+                            key={outlineEvent.id}
+                            type="button"
+                            className={`planning-link-option ${isLinked ? 'is-linked' : ''}`}
+                            onClick={() =>
+                              onToggleTaskLink(selectedTask.id, 'linkedEventIds', outlineEvent.id)
+                            }
+                          >
+                            <span className="planning-link-option-copy">
+                              <span className="planning-link-option-title">{outlineEvent.title}</span>
+                              <span className="planning-link-option-subtitle">
+                                {eventContext ? eventContext.partTitle : 'Event'}
+                              </span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="planning-link-empty">No events available yet.</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="planned-task-tag-list">
+                {getTaskLinkBadges(selectedTask).length > 0 ? (
+                  getTaskLinkBadges(selectedTask).map((badge) => (
+                    <span key={badge.key} className={`planning-link-chip kind-${badge.kind}`}>
+                      {badge.label}
+                    </span>
+                  ))
+                ) : (
+                  <span className="planning-link-empty">
+                    This task is not linked yet. Connect it to the story structure above.
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="planning-section">
+              <div className="planning-section-title">Comments</div>
+              {selectedTask.comments.length > 0 ? (
+                <div className="task-comment-list">
+                  {selectedTask.comments.map((comment) => (
+                    <div key={comment.id} className="task-comment-item">
+                      <div className="comment-header">
+                        <span className="comment-title">Note</span>
+                        <span className="comment-meta">
+                          {new Date(comment.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="comment-body">{comment.body}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="planning-empty">No comments yet.</div>
+              )}
+
+              <div className="task-comment-composer">
+                <textarea
+                  className="outline-textarea"
+                  placeholder="Add a comment about this task"
+                  value={taskCommentDraft}
+                  onChange={(event) => onSetTaskCommentDraft(event.target.value)}
+                />
+                <button
+                  className="secondary-action"
+                  onClick={() => onAddTaskComment(selectedTask.id, taskCommentDraft)}
+                >
+                  Add Comment
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="planning-empty">
+            Create a task for the selected date, or pick a task block from the calendar to edit it.
+          </div>
+        )}
+      </aside>
+    </div>
+  </div>
+);
 export default BookWorkspace;
