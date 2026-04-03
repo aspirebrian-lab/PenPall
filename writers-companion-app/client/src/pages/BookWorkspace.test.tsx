@@ -559,4 +559,87 @@ describe('BookWorkspace', () => {
       )
     ).toBeInTheDocument();
   });
+
+  it('navigates back when leave is confirmed', async () => {
+    mockedNavigate.mockReset();
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    renderWorkspace();
+
+    await screen.findByRole('button', { name: 'Page 1' });
+
+    const quill = await screen.findByTestId('quill');
+    fireEvent.change(quill, { target: { value: 'Unsaved edits' } });
+
+    await screen.findByText('Unsaved changes');
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Back to Dashboard' })[0]);
+
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(mockedNavigate).toHaveBeenCalledWith('/');
+
+    confirmSpy.mockRestore();
+  });
+
+  it('navigates back immediately when there are no unsaved changes', async () => {
+    mockedNavigate.mockReset();
+    const confirmSpy = vi.spyOn(window, 'confirm');
+
+    renderWorkspace();
+
+    await screen.findByRole('button', { name: 'Page 1' });
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Back to Dashboard' })[0]);
+
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(mockedNavigate).toHaveBeenCalledWith('/');
+
+    confirmSpy.mockRestore();
+  });
+
+  it('shows a local-save message when manual save cannot write to the folder', async () => {
+    const dir = { name: 'Folder' } as any;
+    (mockedLoadBookDirHandle as any).mockResolvedValue(dir);
+    (mockedWriteBookBundle as any).mockRejectedValueOnce(new Error('disk unavailable'));
+
+    renderWorkspace();
+
+    await screen.findByRole('button', { name: 'Page 1' });
+
+    const quill = await screen.findByTestId('quill');
+    fireEvent.change(quill, { target: { value: 'Draft that should save locally' } });
+
+    await screen.findByText('Unsaved changes');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(await screen.findByText('Local save only')).toBeInTheDocument();
+
+    const savedPages = JSON.parse(localStorage.getItem('book:book-1:pages') || '[]');
+    expect(savedPages[0]?.content).toBe('Draft that should save locally');
+  });
+
+  it('shows a local-import message when imported pages cannot be written to the folder', async () => {
+    const dir = { name: 'Folder' } as any;
+    (mockedLoadBookDirHandle as any).mockResolvedValue(dir);
+    (mockedWriteBookBundle as any).mockRejectedValueOnce(new Error('disk unavailable'));
+
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+
+    const { container } = renderWorkspace();
+
+    await screen.findByRole('button', { name: 'Page 1' });
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(['Imported fallback body'], 'Fallback Page.txt', { type: 'text/plain' });
+    Object.defineProperty(file, 'text', { value: async () => 'Imported fallback body' });
+
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    expect(await screen.findByText('Page imported locally')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Fallback Page' })).toBeInTheDocument();
+    expect(screen.getByTestId('quill')).toHaveValue('Imported fallback body');
+
+    confirmSpy.mockRestore();
+  });
 });

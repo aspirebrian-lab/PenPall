@@ -154,4 +154,79 @@ describe('books routes', () => {
     expect(response.status).toBe(400);
     expect(response.body).toEqual({ message: 'Invalid update key: $set' });
   });
+
+  it('lists in-memory books when mongo is disconnected', async () => {
+    const createResponse = await request(buildApp()).post('/api/books').send({
+      title: 'Listable Book',
+      author: 'List Author',
+    });
+
+    expect(createResponse.status).toBe(201);
+
+    const response = await request(buildApp()).get('/api/books');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          _id: createResponse.body._id,
+          title: 'Listable Book',
+          author: 'List Author',
+        }),
+      ])
+    );
+  });
+
+  it('returns an in-memory book by id when mongo is disconnected', async () => {
+    const createResponse = await request(buildApp()).post('/api/books').send({
+      title: 'Lookup Book',
+      author: 'Lookup Author',
+    });
+
+    const response = await request(buildApp()).get(`/api/books/${createResponse.body._id}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      _id: createResponse.body._id,
+      title: 'Lookup Book',
+      author: 'Lookup Author',
+    });
+  });
+
+  it('updates an existing in-memory book when mongo is disconnected', async () => {
+    const createResponse = await request(buildApp()).post('/api/books').send({
+      title: 'Original Title',
+      author: 'Original Author',
+    });
+
+    const response = await request(buildApp())
+      .put(`/api/books/${createResponse.body._id}`)
+      .send({
+        title: 'Updated Title',
+        author: 'Updated Author',
+        chapters: ['chapter-1'],
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      _id: createResponse.body._id,
+      title: 'Updated Title',
+      author: 'Updated Author',
+      chapters: ['chapter-1'],
+    });
+  });
+
+  it('deletes an existing in-memory book when mongo is disconnected', async () => {
+    const createResponse = await request(buildApp()).post('/api/books').send({
+      title: 'Delete Me',
+      author: 'Delete Author',
+    });
+
+    const deleteResponse = await request(buildApp()).delete(`/api/books/${createResponse.body._id}`);
+    expect(deleteResponse.status).toBe(204);
+
+    const getResponse = await request(buildApp()).get(`/api/books/${createResponse.body._id}`);
+    expect(getResponse.status).toBe(404);
+    expect(getResponse.body).toEqual({ message: 'Book not found' });
+  });
 });
